@@ -116,9 +116,7 @@ class Camera(Node):
                 success,rvec,tvec = cv2.solvePnP(points_3D, points_2D, self.camera_matrix, self.distortion_coefficients)
                 image = cv2.drawFrameAxes(image, self.camera_matrix, self.distortion_coefficients, rvec, tvec, 2.5)
                 
-                #publish the image
-                self.image_pub.publish(CvBridge().cv2_to_imgmsg(image, encoding="bgra8"))
-
+              
                 if success: 
                     self.get_logger().info("Pose estimation successful")
 
@@ -131,7 +129,9 @@ class Camera(Node):
         else:
             self.get_logger().info("No tag detected")
   
-        
+        #publish the image
+        self.image_pub.publish(CvBridge().cv2_to_imgmsg(image, encoding="bgra8"))
+
 
 
 def main(args=None):
