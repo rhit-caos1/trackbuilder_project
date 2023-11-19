@@ -10,9 +10,35 @@ from control_msgs.action import GripperCommand
 from franka_msgs.action import Grasp
 from franka_msgs.action import Homing
 from math import pi
+import math
 from types import SimpleNamespace
 
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
 from std_msgs.msg import String
+
+def euler_from_quaternion(x, y, z, w):
+    """
+    Convert a quaternion into euler angles (roll, pitch, yaw)
+    roll is rotation around x in radians (counterclockwise)
+    pitch is rotation around y in radians (counterclockwise)
+    yaw is rotation around z in radians (counterclockwise)
+    """
+    t0 = +2.0 * (w * x + y * z)
+    t1 = +1.0 - 2.0 * (x * x + y * y)
+    roll_x = math.atan2(t0, t1)
+      
+    t2 = +2.0 * (w * y - z * x)
+    t2 = +1.0 if t2 > +1.0 else t2
+    t2 = -1.0 if t2 < -1.0 else t2
+    pitch_y = math.asin(t2)
+     
+    t3 = +2.0 * (w * z + x * y)
+    t4 = +1.0 - 2.0 * (y * y + z * z)
+    yaw_z = math.atan2(t3, t4)
+     
+    return roll_x, pitch_y, yaw_z
 
 
 class PandaControl(Node):
@@ -75,13 +101,38 @@ class PandaControl(Node):
         self.timer = self.create_timer(2, self.timer_callback)
         self.i = 0
 
+        # Create a listener to recieve the TF's from each tag to the camera
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        self.tag_x = 0
+        self.tag_y = 0
+        self.tag_az = 0
+
     def timer_callback(self):
+        try:
+            tag_2_base = self.tf_buffer.lookup_transform(
+                'panda_link0',
+                'scoop',
+                rclpy.time.Time())
+            self.tag_x = tag_2_base.transform.translation.x
+            self.tag_y = tag_2_base.transform.translation.y
+            tag_ax,tag_ay,self.tag_az = euler_from_quaternion(
+                tag_2_base.transform.rotation.x,
+                tag_2_base.transform.rotation.y,
+                tag_2_base.transform.rotation.z,
+                tag_2_base.transform.rotation.w,
+            )
+
+        except:
+            pass
         self.get_logger().info('Publishing: "%s"' % self.i)
         self.i+=1
     
     def get_track_pose_callback(self, pose_msg):
         # Get track pose (track will get from printer / next track)
         self.track_pose = pose_msg
+
 
 
 
@@ -152,6 +203,8 @@ class PandaControl(Node):
             self.request.is_xyzrpy = True
         self.request.execute_now = False
 
+        self.get_logger().info(f"READY TO PLAN {self.request.is_xyzrpy}")
+
         await self.plan_client.call_async(self.request)
         # rclpy.spin_until_future_complete(self, future)
 
@@ -199,6 +252,11 @@ class PandaControl(Node):
                     [pi/2,-0.783508,-0.000244,-2.356829,-0.003843,1.572944,-0.784056, 0.034865, 0.034865],
                     []
                 ],
+            "new_home2": [
+
+                    [0.00,-0.785398163,0.00,-2.35619449,0.00,1.570796327,0.785398163, 0.034865, 0.034865],
+                    []
+                ],
             "move_test": [[0.3, 0.3, 0.3], []],
             "rotate_home": [[], [pi, 0.0, 0.0]],
             "rotate_90": [
@@ -214,14 +272,22 @@ class PandaControl(Node):
         
     async def home_robot(self,request,response):
         self.get_logger().info(f" FINISHED EXECUTING home_robot")
-        await self.plan(self.waypoints.move_test, execute_now=True)
+        await self.plan(self.waypoints.new_home2, execute_now=True)
         # self.get_logger().info(f" FINISHED EXECUTING home_robot")
         # self.plan(self.waypoints.rotate_90, execute_now=True)
         # self.get_logger().info(f" FINISHED EXECUTING home_robot")
         return response
     
     async def move_robot(self,request,response):
-        await self.plan(self.waypoints.move_test, execute_now=True)
+        z_1 = 0.0230
+        await self.plan([[self.tag_x,self.tag_y,0.3],[]], execute_now=True)
+        self.get_logger().info(f" FINISHED EXECUTING 1")
+        time.sleep(3)
+        await self.plan([[],[pi, 0.0, self.tag_az]],execute_now=True)
+        time.sleep(3)
+        await self.plan([[self.tag_x,self.tag_y,z_1],[]],execute_now=True)
+        self.get_logger().info(f" FINISHED EXECUTING 2")
+        # await self.plan(self.waypoints.new_home2, execute_now=True)
         self.get_logger().info(f" FINISHED EXECUTING move_robot_to_pose")
         return response
     
@@ -250,9 +316,9 @@ class PandaControl(Node):
         await self.plan([[x,y,z_0],[]],execute_now=True)
         self.get_logger().info(f" FINISHED EXECUTING 2")
         # await self.plan([[x,y,z_1],[]],execute_now=True)
-        self.grasp(width=0.04,force=90.0)
+        # self.grasp(width=0.04,force=90.0)
         time.sleep(3)
-        await self.plan(self.waypoints.send_home, execute_now=True)
+        await self.plan(self.waypoints.new_home2, execute_now=True)
         return response
 
 

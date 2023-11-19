@@ -549,8 +549,8 @@ class MoveBot(Node):
         motion_req.num_planning_attempts = 100
         motion_req.allowed_planning_time = 10.0
         
-        motion_req.max_velocity_scaling_factor = 0.05
-        motion_req.max_acceleration_scaling_factor = 0.05
+        motion_req.max_velocity_scaling_factor = 0.1
+        motion_req.max_acceleration_scaling_factor = 0.1
         motion_req.max_cartesian_speed = 0.0
         plan_request = MoveGroup.Goal()
         plan_request.request = motion_req
@@ -601,7 +601,7 @@ class MoveBot(Node):
         
 
 
-        if not request.is_xyzrpy:
+        if not request.is_xyzrpy and request.goal_pos.position:
             self.get_logger().info(f"CHANGING TO SEND HOME STATE")
             self.state=State.HOME_MSG
         elif not request.goal_pos.position and self.state==State.IDLE:
@@ -681,9 +681,12 @@ class MoveBot(Node):
                                                                                             jump_threshold=plan_msg.cart_request.jump_threshold,
                                                                                             prismatic_jump_threshold=plan_msg.cart_request.prismatic_jump_threshold,
                                                                                             revolute_jump_threshold=plan_msg.cart_request.revolute_jump_threshold,
-                                                                                            waypoints=plan_msg.cart_request.waypoints,))
+                                                                                            waypoints=plan_msg.cart_request.waypoints,
+                                                                                            cartesian_speed_limited_link = "panda_hand",
+                                                                                            max_cartesian_speed = 0.01,))
             # self.plan_response = await self.future_response.get_result_async()
             # print(f"\n CART PLAN RESP {self.cart_response}")
+            Cart_Rqst = GetCartesianPath.Request()
 
             if self.state==State.CART_MSG:
 
@@ -703,7 +706,7 @@ class MoveBot(Node):
             start_in_joint_config.joint_state = self.joint_statesmsg
 
             goal_in_joint_config = RobotState()
-            goal_in_joint_config.joint_state.position= self.joint_statesmsg.position ## GOAL POS IS JUST JOINT STATES
+            goal_in_joint_config.joint_state.position= request.goal_pos.position ## GOAL POS IS JUST JOINT STATES
             plan_msg = self.get_motion_request(
                     start_in_joint_config,
                     goal_in_joint_config,
