@@ -33,7 +33,9 @@ class Camera(Node):
         self.image_pub = self.create_publisher(Image, "processed_image", 10)
 
         # define broadcaster 
-        self.tf_broadcaster = TransformBroadcaster(self)   
+        self.tf_broadcaster = TransformBroadcaster(self) 
+
+        # define the service  
 
 
     def get_info_callback(self, msg):
@@ -125,6 +127,10 @@ class Camera(Node):
 
                 else:
                     self.get_logger().info("Pose estimation failed")
+
+            elif len(circles_sum) == 1:
+                # if only one circle is detected, get the center of the circle
+
         
         else:
             self.get_logger().info("No tag detected")
