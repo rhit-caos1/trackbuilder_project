@@ -79,10 +79,12 @@ class Camera(Node):
         # define a vector that points to the center of the circle
         if self.large_circle_list is not None:
             for i in range(len(self.large_circle_list)):
-                vector_x = self.large_circle_list[i][0] - self.center[0]
-                vector_y = self.large_circle_list[i][1] - self.center[1]
-                x.append(vector_x)
-                y.append(vector_y)
+                vector_x = self.large_circle_list[i][1] - self.center[0]
+                vector_y = self.large_circle_list[i][0] - self.center[1]
+                self.get_logger().info("number" + str(i) + " x: " + str(vector_x) + " y: " + str(vector_y))
+                x.append(-vector_x)
+                y.append(-vector_y)
+
 
         response.x = x
         response.y = y
@@ -150,6 +152,7 @@ class Camera(Node):
     def get_circle(self, image):
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         self.center = (image.shape[0]//2, image.shape[1]//2)
+        self.get_logger().info("center: " + str(self.center))
 
         if self.coarse_positioning:
 
@@ -176,6 +179,8 @@ class Camera(Node):
                             already_exist = True
                     if not already_exist:
                         self.large_circle_list.append([x, y])
+                        cv2.putText(image, str(n), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                        self.get_logger().info("x: " + str(x) + " y: " + str(y))
 
                     n += 1
 
