@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'track_vis'
+package_name = 'track_manager'
 
 setup(
     name=package_name,
@@ -13,13 +13,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='scg1224',
-    maintainer_email='caos1@rose-hulman.edu',
+    maintainer='shane',
+    maintainer_email='shanedeng@cmu.edu',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'printer = track_manager.printer:main',
         ],
     },
 )
