@@ -13,6 +13,8 @@ from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import Image
 from movebot_interfaces.srv import GetCirclesRqst, GetPoseRqst
+import time
+
 
 class Camera(Node):
     
@@ -22,10 +24,17 @@ class Camera(Node):
         self.distortion_coefficients = None
 
         self.large_circle_list = []
-        self.pose_avg = []
-        self.coarse_positioning = True
+        self.coarse_positioning = False
         self.fine_positioning = False
         self.detected = False
+
+        self.circle_radius_image_far = 55
+        self.circle_radius_image_near = 220
+        self.center = None
+        self.image = None
+
+        # the list of the images will be capped at 10
+        self.image_list = []
 
         # define subscriber
         self.image_sub = self.create_subscription(
@@ -54,13 +63,26 @@ class Camera(Node):
         self.destroy_subscription(self.info_camera)
 
     def circle_callback(self, request, response):
+        self.large_circle_list = []
         self.coarse_positioning = True
+        self.fine_positioning = False
+        self.detected = False        
+
+
+        self.get_circle(self.image)   
+
         x = []
         y = []
+
+        # wait for the large circle list to be filled
+        self.get_logger().info("size of the list: " + str(len(self.large_circle_list)))
+        # define a vector that points to the center of the circle
         if self.large_circle_list is not None:
             for i in range(len(self.large_circle_list)):
-                x.append(self.large_circle_list[i][0])
-                y.append(self.large_circle_list[i][1])
+                vector_x = self.large_circle_list[i][0] - self.center[0]
+                vector_y = self.large_circle_list[i][1] - self.center[1]
+                x.append(vector_x)
+                y.append(vector_y)
 
         response.x = x
         response.y = y
@@ -71,7 +93,12 @@ class Camera(Node):
         self.fine_positioning = True
         self.coarse_positioning = False
         self.get_logger().info("Start pose estimation")
+
+        self.get_circle(self.image)
+
         response.detected = self.detected
+        return response
+
 
     def broadcast_transform(self, rvec, tvec):
         try:
@@ -109,22 +136,29 @@ class Camera(Node):
             self.get_logger().info("No camera matrix or distortion coefficients")
             return
         
-        image = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgra8")
+        self.image = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgra8")
+        
+        # keep the image list capped at 10
+        self.image_list.append(self.image)
+        if len(self.image_list) > 10:
+            # move everything to the left
+            self.image_list = self.image_list[1:]
+
+
+       
+
+    def get_circle(self, image):
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        self.center = (image.shape[1]//2, image.shape[0]//2)
 
         if self.coarse_positioning:
-            
-            # clear all the variables whenever the coarse positioning is called
-            self.pose_avg = []
-            self.detected = False
-            self.fine_positioning = False
 
             # use a set of parameters for large circle detection
             circles = cv2.HoughCircles(
-                image_gray, cv2.HOUGH_GRADIENT, 1, 50, param1=50, param2=70, minRadius=10, maxRadius=350)
+                image_gray, cv2.HOUGH_GRADIENT, 1, 50, param1=50, param2=50, minRadius=30, maxRadius= self.circle_radius_image_far)
 
             # center of the image frame
-            center = (image.shape[1]//2, image.shape[0]//2)
+            
 
             if circles is not None:
                 circles = np.round(circles[0, :]).astype("int")
@@ -134,68 +168,82 @@ class Camera(Node):
                 for (x, y, r) in circles:
                     cv2.circle(image, (x, y), r, (0, 255, 0), 4)
                     circles_sum.append([x, y, r])
+                    #self.get_logger().info("x: " + str(x) + " y: " + str(y) + " r: " + str(r))
+                    
+                    already_exist = False
+                    for i in range (len(self.large_circle_list)):
+                        if (x - self.large_circle_list[i][0])**2 + (y - self.large_circle_list[i][1])**2 < self.circle_radius_image_far**2:
+                            already_exist = True
+                    if not already_exist:
+                        self.large_circle_list.append([x, y])
 
-                    # define a vector that points to the center of the circle
-                    vector_x = x - center[0]
-                    vector_y = y - center[1]
-                    self.large_circle_list.append([vector_x, vector_y])
                     n += 1
 
         elif self.fine_positioning:
-            circles = cv2.HoughCircles(
-                            image_gray, cv2.HOUGH_GRADIENT, 1, 50, param1=50, param2=70, minRadius=10, maxRadius=350)
 
-            if circles is not None:
-                circles = np.round(circles[0, :]).astype("int")
-                n = 0
-                circles_sum = []
+            pose_avg = []
+            # for loop for the queue
+            for i in range(len(self.image_list)):
+                # get the image from the queue
+                image = self.image_list[i]
+                image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                
 
-                for (x, y, r) in circles:
-                    cv2.circle(image, (x, y), r, (0, 255, 0), 4)
-                    circles_sum.append([x, y, r])
-                    n += 1
-                circles_sum = sorted(circles_sum, key=lambda x: x[2])
 
-                #put text on the circle
-                for i in range(len(circles_sum)):
-                    cv2.putText(image, str(i), (circles_sum[i][0], circles_sum[i][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                circles = cv2.HoughCircles(
+                                image_gray, cv2.HOUGH_GRADIENT, 1.25, 50, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
 
-            
-                if len(circles_sum) == 4:
-                    #self.get_logger().info(str(len(circles_sum[0])))
-                    # still need to implement a way to check if the circles are in the correct radius
-                    points_2D = np.array([(circles_sum[3][0], circles_sum[3][1]),
-                                        (circles_sum[2][0], circles_sum[2][1]),
-                                            (circles_sum[1][0], circles_sum[1][1]),
-                                        (circles_sum[0][0], circles_sum[0][1])], dtype="double")
-                    points_3D = np.array([(0.0, 0.0, 0.0),
-                                        (1.0, 0.0, 0.0),
-                                        (-0.8, -1.2, 0.0),
-                                        (-0.8, 1.2, 0.0)])
-                    success,rvec,tvec = cv2.solvePnP(points_3D, points_2D, self.camera_matrix, self.distortion_coefficients)
-                    image = cv2.drawFrameAxes(image, self.camera_matrix, self.distortion_coefficients, rvec, tvec, 2.5)
-                    self.pose_avg.append([rvec, tvec])
-                    
-                    if success and len(self.pose_avg) > 10: 
+                if circles is not None:
+                    circles = np.round(circles[0, :]).astype("int")
+                    n = 0
+                    circles_sum = []
 
-                        # calculate the average of the rvec and tvec
-                        rvec = np.mean(np.array(self.pose_avg)[:, 0], axis=0)
-                        tvec = np.mean(np.array(self.pose_avg)[:, 1], axis=0)
+                    for (x, y, r) in circles:
+                        cv2.circle(image, (x, y), r, (0, 255, 0), 4)
 
-                        self.get_logger().info("Pose estimation successful")
-                        self.detected = True
+                        #check to see if the circle is around the center of the image
+                        if (x - self.center[0])**2 + (y - self.center[1])**2 > (self.circle_radius_image_near + 15)**2:
+                            continue
 
-                        # broadcast transform
-                        self.broadcast_transform(rvec, tvec)
+                        circles_sum.append([x, y, r])
+                        n += 1
+                    circles_sum = sorted(circles_sum, key=lambda x: x[2])
 
+                    #put text on the circle
+                    for i in range(len(circles_sum)):
+                        cv2.putText(image, str(i), (circles_sum[i][0], circles_sum[i][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+                
+                    if len(circles_sum) == 4:
+                        #self.get_logger().info(str(len(circles_sum[0])))
+                        # still need to implement a way to check if the circles are in the correct radius
+                        points_2D = np.array([(circles_sum[3][0], circles_sum[3][1]),
+                                            (circles_sum[2][0], circles_sum[2][1]),
+                                                (circles_sum[1][0], circles_sum[1][1]),
+                                            (circles_sum[0][0], circles_sum[0][1])], dtype="double")
+                        points_3D = np.array([(0.0, 0.0, 0.0),
+                                            (1.0, 0.0, 0.0),
+                                            (-0.8, -1.2, 0.0),
+                                            (-0.8, 1.2, 0.0)])
+                        success,rvec,tvec = cv2.solvePnP(points_3D, points_2D, self.camera_matrix, self.distortion_coefficients)
+                        pose_avg.append([rvec, tvec])
                     else:
-                        self.get_logger().info("Pose estimation failed")
-
+                        self.get_logger().info("Not enough circles detected")
+                    
                 else:
-                    self.get_logger().info("Not enough circles detected")
-        else:
-            self.get_logger().info("No tag detected")
-  
+                    self.get_logger().info("No tag detected")
+
+            # calculate the average of the rvec and tvec
+            rvec = np.mean(np.array(pose_avg)[:, 0], axis=0)
+            tvec = np.mean(np.array(pose_avg)[:, 1], axis=0)
+            image = cv2.drawFrameAxes(image, self.camera_matrix, self.distortion_coefficients, rvec, tvec, 2.5)
+
+            self.get_logger().info("Pose estimation successful")
+            self.detected = True
+
+            # broadcast transform
+            self.broadcast_transform(rvec, tvec)
+
         #publish the image
         self.image_pub.publish(CvBridge().cv2_to_imgmsg(image, encoding="bgra8"))
 
