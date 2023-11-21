@@ -158,7 +158,7 @@ class Camera(Node):
 
             # use a set of parameters for large circle detection
             circles = cv2.HoughCircles(
-                image_gray, cv2.HOUGH_GRADIENT, 1, 50, param1=50, param2=50, minRadius=30, maxRadius= self.circle_radius_image_far)
+                image_gray, cv2.HOUGH_GRADIENT, 1.25, 40, param1=40, param2=50, minRadius=30, maxRadius= self.circle_radius_image_far)
 
             # center of the image frame
             
@@ -175,7 +175,7 @@ class Camera(Node):
                     
                     already_exist = False
                     for i in range (len(self.large_circle_list)):
-                        if (x - self.large_circle_list[i][0])**2 + (y - self.large_circle_list[i][1])**2 < self.circle_radius_image_far**2:
+                        if (x - self.large_circle_list[i][1])**2 + (y - self.large_circle_list[i][0])**2 < self.circle_radius_image_far**2:
                             already_exist = True
                     if not already_exist:
                         self.large_circle_list.append([x, y])
