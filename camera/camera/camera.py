@@ -29,7 +29,7 @@ class Camera(Node):
         self.detected = False
 
         self.circle_radius_image_far = 55
-        self.circle_radius_image_near = 220
+        self.circle_radius_image_near = 250
         self.center = None
         self.image = None
 
@@ -196,7 +196,7 @@ class Camera(Node):
 
 
                 circles = cv2.HoughCircles(
-                                image_gray, cv2.HOUGH_GRADIENT, 1.15, 45, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
+                                image_gray, cv2.HOUGH_GRADIENT, 1.25, 50, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
 
                 if circles is not None:
                     circles = np.round(circles[0, :]).astype("int")
@@ -207,7 +207,7 @@ class Camera(Node):
                         cv2.circle(image, (x, y), r, (0, 255, 0), 4)
 
                         #check to see if the circle is around the center of the image
-                        if (x - self.center[0])**2 + (y - self.center[1])**2 > (self.circle_radius_image_near + 15)**2:
+                        if (x - self.center[1])**2 + (y - self.center[0])**2 > (self.circle_radius_image_near + 15)**2:
                             continue
 
                         circles_sum.append([x, y, r])
@@ -234,6 +234,7 @@ class Camera(Node):
                         pose_avg.append([rvec, tvec])
                     else:
                         self.get_logger().info("Not enough circles detected")
+                        self.get_logger().info("Number of circles detected: " + str(len(circles_sum)))
                     
                 else:
                     self.get_logger().info("No tag detected")
