@@ -81,8 +81,8 @@ class Camera(Node):
             for i in range(len(self.large_circle_list)):
                 vector_x = self.large_circle_list[i][0] - self.center[0]
                 vector_y = self.large_circle_list[i][1] - self.center[1]
-                x.append(vector_x)
-                y.append(vector_y)
+                x.append(vector_y)
+                y.append(-vector_x)
 
         response.x = x
         response.y = y
