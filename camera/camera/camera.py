@@ -196,7 +196,7 @@ class Camera(Node):
 
 
                 circles = cv2.HoughCircles(
-                                image_gray, cv2.HOUGH_GRADIENT, 1.25, 50, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
+                                image_gray, cv2.HOUGH_GRADIENT, 1.15, 45, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
 
                 if circles is not None:
                     circles = np.round(circles[0, :]).astype("int")
