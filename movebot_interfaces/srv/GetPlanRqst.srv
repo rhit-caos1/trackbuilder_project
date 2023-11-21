@@ -1,6 +1,8 @@
 movebot_interfaces/IkGoalRqstMsg start_pos
 movebot_interfaces/IkGoalRqstMsg goal_pos
 bool is_xyzrpy
+bool is_cart
+bool is_vect
 bool execute_now
 ---
 moveit_msgs/MotionPlanRequest motion_request

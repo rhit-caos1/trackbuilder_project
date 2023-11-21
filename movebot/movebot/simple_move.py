@@ -610,16 +610,29 @@ class MoveBot(Node):
             self.state=State.ROT_MSG
         elif not request.goal_pos.orientation and self.state==State.IDLE:
             # print('CHANGED TO CART TRANS')
-            self.get_logger().info(f"CHANGING TO CART MSG STATE")
-            self.state=State.CART_MSG
+            if request.is_cart == True:
+                self.get_logger().info(f"CHANGING TO CART MSG STATE")
+                self.state=State.CART_MSG
+            else: 
+                self.get_logger().info(f"CHANGING TO ROT MSG STATE")
+                self.state=State.ROT_MSG
 
         if self.state==State.ROT_MSG:
             # print('MAKING ROT MSG')
             self.get_logger().info(f" CURRENT STATE {self.state}")
             self.get_logger().info(f"MAKING ROT MSG")
             ik_request_message_goal = IkGoalRqstMsg()
-            ik_request_message_goal.position = request.goal_pos.position
-            ik_request_message_goal.orientation = request.goal_pos.orientation
+            if request.is_vect == False:
+                self.get_logger().info(f"MAKING IK REQUEST FROM RQST")
+                ik_request_message_goal.position = request.goal_pos.position
+                ik_request_message_goal.orientation = request.goal_pos.orientation
+                self.get_logger().info(f"MAKING IK REQUEST POSE{ik_request_message_goal.position}")
+            else:
+                new_pose_with_vect = [request.goal_pos.position[0]+self.ee_base.transform.translation.x,
+                                      request.goal_pos.position[1]+self.ee_base.transform.translation.y,
+                                      request.goal_pos.position[2]+self.ee_base.transform.translation.z,]
+                ik_request_message_goal.position = new_pose_with_vect
+                ik_request_message_goal.orientation = request.goal_pos.orientation
 
             goal_in_joint_config = RobotState()
             goal_in_joint_config = await self.ik_callback(
@@ -656,6 +669,11 @@ class MoveBot(Node):
                                     self.ee_base.transform.rotation.y,
                                     self.ee_base.transform.rotation.z,
                                     self.ee_base.transform.rotation.w]
+                if request.is_vect:
+                    new_pose_with_vect = [request.goal_pos.position[0]+self.ee_base.transform.translation.x,
+                                      request.goal_pos.position[1]+self.ee_base.transform.translation.y,
+                                      request.goal_pos.position[2]+self.ee_base.transform.translation.z,]
+                    request.goal_pos.position = new_pose_with_vect
 
             if not request.goal_pos.position:
                 request.goal_pos.position= [self.ee_base.transform.translation.x,
@@ -743,6 +761,19 @@ class MoveBot(Node):
         # self.get_logger().info(f"exec msg {self.cart_response.solution.joint_trajectory}")
 
         if self.state==State.CART_EXEC:
+            v=0.1
+            for point in self.cart_response.solution.joint_trajectory.points:
+                total_time = point.time_from_start.nanosec + point.time_from_start.sec * 1000000000
+                total_time *= 1.0/v
+                point.time_from_start.sec = math.floor(total_time / 1000000000)
+                point.time_from_start.nanosec = math.floor(total_time % 1000000000)
+
+                for i in range(len(point.velocities)):
+                    point.velocities[i] *= v
+
+                for i in range(len(point.accelerations)):
+                    point.accelerations[i] *= v
+            self.get_logger().info(f"Cart Len: {len(self.cart_response.solution.joint_trajectory.points)}")
 
             self.get_logger().info(f" CURRENT STATE {self.state}")
             execute_msg.trajectory = self.cart_response.solution

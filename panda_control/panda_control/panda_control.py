@@ -3,7 +3,7 @@ import time
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
 from std_srvs.srv import Empty
-from movebot_interfaces.srv import AddBox, GetPlanRqst, MoveToTrackRqst
+from movebot_interfaces.srv import AddBox, GetPlanRqst, MoveToTrackRqst,GetCirclesRqst,GetPoseRqst
 from geometry_msgs.msg import Pose
 from rclpy.action import ActionClient
 from control_msgs.action import GripperCommand
@@ -11,12 +11,24 @@ from franka_msgs.action import Grasp
 from franka_msgs.action import Homing
 from math import pi
 import math
+import numpy as np
 from types import SimpleNamespace
 
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
 from std_msgs.msg import String
+
+def least_sqare_point(l,ref):
+    l = np.array(l)
+    size = len(l)
+    dis = []
+    x = ref[0]
+    y = ref[1]
+    for i in range(size):
+        lsd = np.sqrt((l[i][0]-x)**2+(l[i][1]-y)**2)
+        dis.append(lsd)
+    return np.argmin(dis)
 
 def euler_from_quaternion(x, y, z, w):
     """
@@ -59,6 +71,14 @@ class PandaControl(Node):
         )
         self.execute_client = self.create_client(
             Empty, "call_execute", callback_group=self.cbgroup
+        )
+
+        # clients for detection
+        self.get_cricles_client = self.create_client(
+            GetCirclesRqst, "get_circles", callback_group=self.cbgroup
+        )
+        self.get_pose_client = self.create_client(
+            GetPoseRqst, "get_pose", callback_group=self.cbgroup
         )
 
 
@@ -109,11 +129,37 @@ class PandaControl(Node):
         self.tag_y = 0
         self.tag_az = 0
 
+        self.tags_list = []
+
     def timer_callback(self):
+        # try:
+        #     tag_2_base = self.tf_buffer.lookup_transform(
+        #         'panda_link0',
+        #         'tag_0',
+        #         rclpy.time.Time())
+        #     self.tag_x = tag_2_base.transform.translation.x
+        #     self.tag_y = tag_2_base.transform.translation.y
+        #     tag_ax,tag_ay,self.tag_az = euler_from_quaternion(
+        #         tag_2_base.transform.rotation.x,
+        #         tag_2_base.transform.rotation.y,
+        #         tag_2_base.transform.rotation.z,
+        #         tag_2_base.transform.rotation.w,
+        #     )
+
+        # except:
+        #     pass
+        self.get_logger().info('Publishing: "%s"' % self.i)
+        self.i+=1
+    
+    def get_track_pose_callback(self, pose_msg):
+        # Get track pose (track will get from printer / next track)
+        self.track_pose = pose_msg
+
+    def get_tag_pose(self):
         try:
             tag_2_base = self.tf_buffer.lookup_transform(
                 'panda_link0',
-                'scoop',
+                'tag_0',
                 rclpy.time.Time())
             self.tag_x = tag_2_base.transform.translation.x
             self.tag_y = tag_2_base.transform.translation.y
@@ -126,15 +172,6 @@ class PandaControl(Node):
 
         except:
             pass
-        self.get_logger().info('Publishing: "%s"' % self.i)
-        self.i+=1
-    
-    def get_track_pose_callback(self, pose_msg):
-        # Get track pose (track will get from printer / next track)
-        self.track_pose = pose_msg
-
-
-
 
     def grasp(self, width, speed=1.0, force=30.0, epsilon=(0.005, 0.005)):
         """
@@ -186,7 +223,7 @@ class PandaControl(Node):
         self._homing_client.wait_for_server()
         return self._homing_client.send_goal_async(goal_msg)
 
-    async def plan(self,waypoint,execute_now):
+    async def plan(self,waypoint,execute_now,is_cart=False,is_vect = False):
         """
         Create a trajectory plan for the end-effector to reach thespecified waypoint
 
@@ -202,6 +239,8 @@ class PandaControl(Node):
         else:
             self.request.is_xyzrpy = True
         self.request.execute_now = False
+        self.request.is_cart = is_cart
+        self.request.is_vect = is_vect
 
         self.get_logger().info(f"READY TO PLAN {self.request.is_xyzrpy}")
 
@@ -279,17 +318,54 @@ class PandaControl(Node):
         return response
     
     async def move_robot(self,request,response):
+        z_0 = 0.48688
         z_1 = 0.0230
-        await self.plan([[self.tag_x,self.tag_y,0.3],[]], execute_now=True)
-        self.get_logger().info(f" FINISHED EXECUTING 1")
-        time.sleep(3)
-        await self.plan([[],[pi, 0.0, self.tag_az]],execute_now=True)
-        time.sleep(3)
-        await self.plan([[self.tag_x,self.tag_y,z_1],[]],execute_now=True)
-        self.get_logger().info(f" FINISHED EXECUTING 2")
-        # await self.plan(self.waypoints.new_home2, execute_now=True)
-        self.get_logger().info(f" FINISHED EXECUTING move_robot_to_pose")
+
+        correction_num = 0.002
+        cam_off_x = -0.048
+        cam_off_y = 0.02
+        await self.plan(self.waypoints.new_home2, execute_now=True)
+        # self.get_tag_pose()
+        # # await self.plan([[self.tag_x,self.tag_y,0.3],[]], execute_now=True)
+        # # self.get_logger().info(f" FINISHED EXECUTING 1")
+        # # time.sleep(3)
+        # # await self.plan([[],[pi, 0.0, self.tag_az]],execute_now=True)
+        # # time.sleep(3)
+        # await self.plan([[self.tag_x,self.tag_y,z_1],[]],execute_now=True)
+        # self.get_logger().info(f" FINISHED EXECUTING 2")
+        # # await self.plan(self.waypoints.new_home2, execute_now=True)
+        # self.get_logger().info(f" FINISHED EXECUTING move_robot_to_pose")
+        circles_response = self.get_cricles_client.call(GetCirclesRqst.Request())
+        circle_num = len(circles_response.x)
+        for i in range(circle_num):
+            centered = False
+            #get x and y in ? frame
+            x = float(circles_response.x[i])*correction_num+cam_off_x
+            y = float(circles_response.y[i])*correction_num+cam_off_y
+            while not centered:
+                await self.plan([[x,y,0.0],[]],execute_now=True,is_cart=True,is_vect=True)
+                new_circles_response = self.get_cricles_client.call(GetCirclesRqst.Request())
+                min_index = least_sqare_point(new_circles_response)
+                new_x = float(circles_response.x[min_index])
+                new_y = float(circles_response.y[min_index])
+                if np.abs(new_x-circles_response.x[i])<10 and np.abs(new_y-circles_response.y[i])<10:
+                    centered = True
+                else:
+                    x = new_x*correction_num+cam_off_x
+                    y = new_y*correction_num+cam_off_y
+            await self.plan([[0.0,0.0,z_1-z_0],[]],execute_now=True,is_cart=True,is_vect=True)
+            pose_response = self.get_pose_client.call(GetPoseRqst.Request())
+            if pose_response.detected == True:
+                self.get_tag_pose()
+                self.tags_list.append([self.tag_x,self.tag_y,self.tag_az])
+                self.get_logger().info(f" tag detected! x = {self.tag_x}")
+                self.get_logger().info(f" tag detected! y = {self.tag_y}")
+                self.get_logger().info(f" tag detected! az = {self.tag_az}")
+            
+
         return response
+    
+    
     
     def close_gripper_srv(self,request,response):
         self.grasp(width=0.04,force=90.0)
@@ -305,20 +381,20 @@ class PandaControl(Node):
     async def move_to_track_srv(self,request,response):
         x = float(request.x)
         y = float(request.y)
-        z_0 = 0.486882
-        z_1 = 0.0230
+        z_0 = 0.3
+
         yaw = float(request.yaw)
-        await self.plan([[x,y,z_1],[]], execute_now=True)
+        await self.plan([[x,y,z_0],[]], execute_now=True,is_cart=True,is_vect=True)
         self.get_logger().info(f" FINISHED EXECUTING 1")
-        time.sleep(3)
-        await self.plan([[],[pi, 0.0, yaw]],execute_now=True)
-        time.sleep(3)
-        await self.plan([[x,y,z_0],[]],execute_now=True)
-        self.get_logger().info(f" FINISHED EXECUTING 2")
+        # time.sleep(3)
+        # await self.plan([[],[pi, 0.0, yaw]],execute_now=True)
+        # time.sleep(3)
+        # await self.plan([[x,y,z_0],[]],execute_now=True)
+        # self.get_logger().info(f" FINISHED EXECUTING 2")
         # await self.plan([[x,y,z_1],[]],execute_now=True)
         # self.grasp(width=0.04,force=90.0)
         time.sleep(3)
-        await self.plan(self.waypoints.new_home2, execute_now=True)
+        # await self.plan(self.waypoints.new_home2, execute_now=True)
         return response
 
 

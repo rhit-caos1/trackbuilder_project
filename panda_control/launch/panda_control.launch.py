@@ -73,25 +73,39 @@ def generate_launch_description():
 
     )
     
-    aruco_params = os.path.join(
-        get_package_share_directory('ros2_aruco'),
-        'config',
-        'aruco_parameters.yaml'
-        )
+    # aruco_params = os.path.join(
+    #     get_package_share_directory('ros2_aruco'),
+    #     'config',
+    #     'aruco_parameters.yaml'
+    #     )
 
-    aruco_node = Node(
-        package='ros2_aruco',
-        executable='aruco_node',
-        parameters=[aruco_params],
-        remappings=[
-            ('/image_raw', '/camera/color/image_raw'),
-            ('/camera_info', '/camera/color/camera_info'),
-        ]
+    # aruco_node = Node(
+    #     package='ros2_aruco',
+    #     executable='aruco_node',
+    #     parameters=[aruco_params],
+    #     remappings=[
+    #         ('/image_raw', '/camera/color/image_raw'),
+    #         ('/camera_info', '/camera/color/camera_info'),
+    #     ]
+    # )
+
+    dwtag_node = Node(
+        package='camera',
+        executable='camera',
+        name='panda_camera'
+
+        # remappings=[
+        #     ('/image_raw', '/camera/color/image_raw'),
+        #     ('/camera_info', '/camera/color/camera_info'),
+        # ]
     )
     realsense_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
             get_package_share_directory('realsense2_camera')),
-            '/launch/rs_launch.py'])
+            '/launch/rs_launch.py']),
+            launch_arguments={
+                'rgb_camera_module.profile': '1920x1080x30',
+            }.items()
     )
 
 
@@ -106,13 +120,13 @@ def generate_launch_description():
     realsense_frame_node = Node(
                 package='tf2_ros',
                 executable='static_transform_publisher',
-                arguments = ['--x', '0.058', '--y', '0.00', '--z', '0.065', '--yaw', '0', '--pitch', '-1.570796327', '--roll', '3.141592654', '--frame-id', 'panda_hand', '--child-frame-id', 'camera_link']
+                arguments = ['--x', '0.048', '--y', '-0.02', '--z', '0.065', '--yaw', '0', '--pitch', '-1.570796327', '--roll', '3.141592654', '--frame-id', 'panda_hand', '--child-frame-id', 'camera_link']
             )
 
 
     ld = LaunchDescription([
         realsense_node,
-        aruco_node,
+        dwtag_node,
         simple_move,
         # vision,
         rviz_real,
