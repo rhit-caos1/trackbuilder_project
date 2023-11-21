@@ -670,6 +670,7 @@ class MoveBot(Node):
                                     self.ee_base.transform.rotation.z,
                                     self.ee_base.transform.rotation.w]
                 if request.is_vect:
+                    self.get_logger().info(f"Vector updated!")
                     new_pose_with_vect = [request.goal_pos.position[0]+self.ee_base.transform.translation.x,
                                       request.goal_pos.position[1]+self.ee_base.transform.translation.y,
                                       request.goal_pos.position[2]+self.ee_base.transform.translation.z,]

@@ -75,7 +75,7 @@ class PandaControl(Node):
 
         # clients for detection
         self.get_cricles_client = self.create_client(
-            GetCirclesRqst, "get_circles", callback_group=self.cbgroup
+            GetCirclesRqst, "get_circle", callback_group=self.cbgroup
         )
         self.get_pose_client = self.create_client(
             GetPoseRqst, "get_pose", callback_group=self.cbgroup
@@ -319,11 +319,14 @@ class PandaControl(Node):
     
     async def move_robot(self,request,response):
         z_0 = 0.48688
-        z_1 = 0.0230
+        z_1 = 0.15
 
-        correction_num = 0.002
+        correction_num = 0.0002
         cam_off_x = -0.048
         cam_off_y = 0.02
+
+        center_x = 0.30689
+        center_y = 0.0
         await self.plan(self.waypoints.new_home2, execute_now=True)
         # self.get_tag_pose()
         # # await self.plan([[self.tag_x,self.tag_y,0.3],[]], execute_now=True)
@@ -335,26 +338,59 @@ class PandaControl(Node):
         # self.get_logger().info(f" FINISHED EXECUTING 2")
         # # await self.plan(self.waypoints.new_home2, execute_now=True)
         # self.get_logger().info(f" FINISHED EXECUTING move_robot_to_pose")
-        circles_response = self.get_cricles_client.call(GetCirclesRqst.Request())
+        self.get_logger().info(f" FINISHED EXECUTING home")
+        circles_response = await self.get_cricles_client.call_async(GetCirclesRqst.Request())
+        self.get_logger().info(f" print response x: {circles_response.x}")
+        self.get_logger().info(f" print response y: {circles_response.y}")
         circle_num = len(circles_response.x)
+        ##############!!!!!!!!!!!!!!!###################
+        # # fix the flipped axis!!!!!!!!!!!!!!!!!
+        # # Change it back if camera is fixed!!!!!!!!
+        # y_list = circles_response.x
+        # circles_response.x = circles_response.y
+        # circles_response.y = y_list
         for i in range(circle_num):
             centered = False
-            #get x and y in ? frame
-            x = float(circles_response.x[i])*correction_num+cam_off_x
-            y = float(circles_response.y[i])*correction_num+cam_off_y
+            #get x and y in pixel frame
+            x_pix = float(circles_response.x[i])
+            y_pix = float(circles_response.y[i])
+            x = center_x+float(circles_response.x[i])*correction_num*1.5
+            y = center_y+float(circles_response.y[i])*correction_num*1.5
+            self.get_logger().info(f" expected tag x pix: {x_pix}")
+            self.get_logger().info(f" expected tag y pix: {y_pix}")
+            self.get_logger().info(f" expected tag x: {x}")
+            self.get_logger().info(f" expected tag y: {y}")
             while not centered:
-                await self.plan([[x,y,0.0],[]],execute_now=True,is_cart=True,is_vect=True)
-                new_circles_response = self.get_cricles_client.call(GetCirclesRqst.Request())
-                min_index = least_sqare_point(new_circles_response)
-                new_x = float(circles_response.x[min_index])
-                new_y = float(circles_response.y[min_index])
-                if np.abs(new_x-circles_response.x[i])<10 and np.abs(new_y-circles_response.y[i])<10:
+                time.sleep(2)
+                # move to next point
+                await self.plan([[x,y,z_0],[]],execute_now=True,is_cart=True)
+                # save the rotation
+                await self.plan([[],[pi,0,0]],execute_now=True)
+                time.sleep(2)
+                new_circles_response = await self.get_cricles_client.call_async(GetCirclesRqst.Request())
+                # ##############!!!!!!!!!!!!!!!###################
+                # # fix the flipped axis!!!!!!!!!!!!!!!!!
+                # # Change it back if camera is fixed!!!!!!!!
+                # y_list = new_circles_response.x
+                # new_circles_response.x = new_circles_response.y
+                # new_circles_response.y = y_list
+                #####################################
+                new_circles_pose = np.column_stack((new_circles_response.x,new_circles_response.y))
+                self.get_logger().info(f" poses: {new_circles_pose}")
+                min_index = least_sqare_point(new_circles_pose,[0,0])
+                new_x = float(new_circles_response.x[min_index])
+                new_y = float(new_circles_response.y[min_index])
+                self.get_logger().info(f" new x: {new_x}")
+                self.get_logger().info(f" new y: {new_y}")
+                if np.abs(new_x)<30 and np.abs(new_y)<30:
                     centered = True
                 else:
-                    x = new_x*correction_num+cam_off_x
-                    y = new_y*correction_num+cam_off_y
-            await self.plan([[0.0,0.0,z_1-z_0],[]],execute_now=True,is_cart=True,is_vect=True)
-            pose_response = self.get_pose_client.call(GetPoseRqst.Request())
+                    x = x+new_x*correction_num
+                    y = y+new_y*correction_num
+                    self.get_logger().info(f" expected tag x: {x}")
+                    self.get_logger().info(f" expected tag y: {y}")
+            await self.plan([[x,y,z_1],[]],execute_now=True,is_cart=True)
+            pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
             if pose_response.detected == True:
                 self.get_tag_pose()
                 self.tags_list.append([self.tag_x,self.tag_y,self.tag_az])
@@ -384,7 +420,7 @@ class PandaControl(Node):
         z_0 = 0.3
 
         yaw = float(request.yaw)
-        await self.plan([[x,y,z_0],[]], execute_now=True,is_cart=True,is_vect=True)
+        await self.plan([[x,y,z_0],[pi,0,0]], execute_now=True)
         self.get_logger().info(f" FINISHED EXECUTING 1")
         # time.sleep(3)
         # await self.plan([[],[pi, 0.0, yaw]],execute_now=True)
