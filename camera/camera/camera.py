@@ -149,7 +149,7 @@ class Camera(Node):
 
     def get_circle(self, image):
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        self.center = (image.shape[1]//2, image.shape[0]//2)
+        self.center = (image.shape[0]//2, image.shape[1]//2)
 
         if self.coarse_positioning:
 
