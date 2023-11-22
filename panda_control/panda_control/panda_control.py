@@ -252,7 +252,9 @@ class PandaControl(Node):
         elif execute_now and not self.request.goal_pos.position:
             self.get_logger().info(f" FINISHED EXECUTING- CHANGING STATES")
             await self.send_execute_request()
-        # return future.result()
+        else:
+            self.get_logger().info(f" FINISHED EXECUTING- position and rotation")
+            await self.send_execute_request()
 
     async def send_execute_request(self):
         """
@@ -421,6 +423,7 @@ class PandaControl(Node):
 
         yaw = float(request.yaw)
         await self.plan([[x,y,z_0],[pi,0,0]], execute_now=True)
+        # await self.plan([[x,y,z_0],[pi,0,0]], execute_now=True)
         self.get_logger().info(f" FINISHED EXECUTING 1")
         # time.sleep(3)
         # await self.plan([[],[pi, 0.0, yaw]],execute_now=True)

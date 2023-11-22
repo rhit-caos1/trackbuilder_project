@@ -616,6 +616,13 @@ class MoveBot(Node):
             else: 
                 self.get_logger().info(f"CHANGING TO ROT MSG STATE")
                 self.state=State.ROT_MSG
+        elif request.goal_pos.orientation and request.goal_pos.position and self.state==State.IDLE:
+            if request.is_cart == True:
+                self.get_logger().info(f"CHANGING TO CART MSG STATE")
+                self.state=State.CART_MSG
+            else: 
+                self.get_logger().info(f"CHANGING TO ROT MSG STATE")
+                self.state=State.ROT_MSG
 
         if self.state==State.ROT_MSG:
             # print('MAKING ROT MSG')
