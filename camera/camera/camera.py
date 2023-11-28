@@ -183,7 +183,7 @@ class Camera(Node):
                         self.get_logger().info("x: " + str(x) + " y: " + str(y))
 
                     n += 1
-
+ 
         elif self.fine_positioning:
 
             pose_avg = []
@@ -196,7 +196,7 @@ class Camera(Node):
 
 
                 circles = cv2.HoughCircles(
-                                image_gray, cv2.HOUGH_GRADIENT, 1.05, 45, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
+                                image_gray, cv2.HOUGH_GRADIENT, 1.05, 50, param1=55, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
 
                 if circles is not None:
                     circles = np.round(circles[0, :]).astype("int")
