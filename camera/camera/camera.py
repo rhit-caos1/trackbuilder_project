@@ -196,7 +196,7 @@ class Camera(Node):
 
 
                 circles = cv2.HoughCircles(
-                                image_gray, cv2.HOUGH_GRADIENT, 1.25, 50, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
+                                image_gray, cv2.HOUGH_GRADIENT, 1.05, 45, param1=40, param2=50, minRadius=20, maxRadius=self.circle_radius_image_near)
 
                 if circles is not None:
                     circles = np.round(circles[0, :]).astype("int")
@@ -217,7 +217,7 @@ class Camera(Node):
                         cv2.circle(image, (x, y), r, (0, 255, 0), 4)
 
                         #check to see if the circle is around the center of the image
-                        if (x - largest_circle[0])**2 + (y - largest_circle[1])**2 > (self.circle_radius_image_near + 15)**2:
+                        if (x - largest_circle[0])**2 + (y - largest_circle[1])**2 > (largest_circle[2] + 10)**2:
                             continue
 
                         circles_sum.append([x, y, r])
