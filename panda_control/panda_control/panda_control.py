@@ -416,7 +416,8 @@ class PandaControl(Node):
             self.get_logger().info(f" tag detected! y = {self.tag_y}")
             self.get_logger().info(f" tag detected! az = {self.tag_az}")
 
-        await self.plan([[self.tag_x,self.tag_y,0.15],[self.tag_az,0,0]], execute_now=True)
+        await self.plan([[self.tag_x,self.tag_y,0.15],[]], execute_now=True)
+        await self.plan([[],[pi,0.0,self.tag_az]], execute_now=True)
         
         # self.grasp(width=0.04,force=90.0)
 
