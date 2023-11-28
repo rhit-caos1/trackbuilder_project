@@ -238,7 +238,7 @@ class Camera(Node):
                     
                 else:
                     self.get_logger().info("No tag detected")
-
+            print(pose_avg)
             # calculate the average of the rvec and tvec
             rvec = np.mean(np.array(pose_avg)[:, 0], axis=0)
             tvec = np.mean(np.array(pose_avg)[:, 1], axis=0)

@@ -727,12 +727,19 @@ class MoveBot(Node):
             self.get_logger().info(f"CURRENT STATE {self.state}")
         
             # FOR SENDING HOME JOINT STATES 
-            request.start_pos.position = self.joint_statesmsg.position
+            # request.start_pos.position = self.joint_statesmsg.position
             start_in_joint_config = RobotState()
             start_in_joint_config.joint_state = self.joint_statesmsg
 
+            self.get_logger().info(f"START JOINTS {start_in_joint_config.joint_state.position}")
+
             goal_in_joint_config = RobotState()
+            goal_in_joint_config.joint_state.header.stamp = self.get_clock().now().to_msg()
+            goal_in_joint_config.joint_state.header.frame_id =  "panda_link0"
+            goal_in_joint_config.joint_state.name = self.joint_statesmsg.name
             goal_in_joint_config.joint_state.position= request.goal_pos.position ## GOAL POS IS JUST JOINT STATES
+            #Goal Joints
+            self.get_logger().info(f"END JOINTS {goal_in_joint_config.joint_state.position}")
             plan_msg = self.get_motion_request(
                     start_in_joint_config,
                     goal_in_joint_config,

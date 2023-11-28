@@ -118,6 +118,10 @@ class PandaControl(Node):
             MoveToTrackRqst, "move_to_track", self.move_to_track_srv
         )
 
+        self.grasp_track_sevice = self.create_service(
+            Empty, "grasp_track", self.grasp_track_srv
+        )
+
         self.timer = self.create_timer(2, self.timer_callback)
         self.i = 0
 
@@ -285,7 +289,7 @@ class PandaControl(Node):
 
             "send_home": [
 
-                    [0.000000,-0.787102,-0.003124,-2.357184,-0.000188,1.571918,0.783990, 0.000323, 0.000323],
+                    [-0.002900171686977362,-0.7843635402847285,-0.0005615004410780063,-2.3563120754991074,0.0032930072986947943,1.5720097393989312,0.7962947704933621, 0.04047168046236038, 0.04047168046236038],
                     []
                 ],
             "new_home": [
@@ -295,7 +299,7 @@ class PandaControl(Node):
                 ],
             "new_home2": [
 
-                    [0.00,-0.785398163,0.00,-2.35619449,0.00,1.570796327,0.785398163, 0.034865, 0.034865],
+                    [0.0000000,-0.785398163,0.0000000,-2.35619449,0.0000000,1.570796327,0.785398163, 0.034865, 0.034865],
                     []
                 ],
             "move_test": [[0.3, 0.3, 0.3], []],
@@ -313,7 +317,7 @@ class PandaControl(Node):
         
     async def home_robot(self,request,response):
         self.get_logger().info(f" FINISHED EXECUTING home_robot")
-        await self.plan(self.waypoints.new_home2, execute_now=True)
+        await self.plan(self.waypoints.send_home, execute_now=True)
         # self.get_logger().info(f" FINISHED EXECUTING home_robot")
         # self.plan(self.waypoints.rotate_90, execute_now=True)
         # self.get_logger().info(f" FINISHED EXECUTING home_robot")
@@ -403,7 +407,21 @@ class PandaControl(Node):
 
         return response
     
-    
+    async def grasp_track_srv(self,request,response):
+        pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
+        if pose_response.detected == True:
+            self.get_tag_pose()
+            self.tags_list.append([self.tag_x,self.tag_y,self.tag_az])
+            self.get_logger().info(f" tag detected! x = {self.tag_x}")
+            self.get_logger().info(f" tag detected! y = {self.tag_y}")
+            self.get_logger().info(f" tag detected! az = {self.tag_az}")
+
+        await self.plan([[self.tag_x,self.tag_y,0.15],[self.tag_az,0,0]], execute_now=True)
+        
+        # self.grasp(width=0.04,force=90.0)
+
+        return response
+
     
     def close_gripper_srv(self,request,response):
         self.grasp(width=0.04,force=90.0)
@@ -419,7 +437,7 @@ class PandaControl(Node):
     async def move_to_track_srv(self,request,response):
         x = float(request.x)
         y = float(request.y)
-        z_0 = 0.3
+        z_0 = 0.15
 
         yaw = float(request.yaw)
         await self.plan([[x,y,z_0],[pi,0,0]], execute_now=True)
