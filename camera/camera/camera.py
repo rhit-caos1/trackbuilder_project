@@ -202,16 +202,28 @@ class Camera(Node):
                     circles = np.round(circles[0, :]).astype("int")
                     n = 0
                     circles_sum = []
+                    circles_sum_temp = []
 
                     for (x, y, r) in circles:
+                        circles_sum_temp.append([x, y, r])
+                    
+                    # sort the circles by radius
+                    circles_sum_temp = sorted(circles_sum_temp, key=lambda x: x[2])
+
+                    # get the largest circle
+                    largest_circle = circles_sum_temp[-1]
+
+                    for (x, y, r) in circles_sum_temp:
                         cv2.circle(image, (x, y), r, (0, 255, 0), 4)
 
                         #check to see if the circle is around the center of the image
-                        if (x - self.center[1])**2 + (y - self.center[0])**2 > (self.circle_radius_image_near + 15)**2:
+                        if (x - largest_circle[0])**2 + (y - largest_circle[1])**2 > (self.circle_radius_image_near + 15)**2:
                             continue
 
                         circles_sum.append([x, y, r])
                         n += 1
+                    
+                    # sort the circles
                     circles_sum = sorted(circles_sum, key=lambda x: x[2])
 
                     #put text on the circle

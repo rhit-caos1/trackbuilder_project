@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'printer = track_manager.printer:main',
+            'track = track_manager.track_gen:main',
         ],
     },
 )
