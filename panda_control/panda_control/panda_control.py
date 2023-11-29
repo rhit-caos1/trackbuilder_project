@@ -175,7 +175,7 @@ class PandaControl(Node):
             )
 
         except:
-            pass
+            self.get_logger().info("unable to find tf")
 
     def grasp(self, width, speed=1.0, force=30.0, epsilon=(0.005, 0.005)):
         """
@@ -408,6 +408,8 @@ class PandaControl(Node):
         return response
     
     async def grasp_track_srv(self,request,response):
+        time.sleep(1)
+        self.grasp(width=0.1,force=00.0)
         pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
         if pose_response.detected == True:
             self.get_tag_pose()
@@ -416,10 +418,11 @@ class PandaControl(Node):
             self.get_logger().info(f" tag detected! y = {self.tag_y}")
             self.get_logger().info(f" tag detected! az = {self.tag_az}")
 
-        await self.plan([[self.tag_x,self.tag_y,0.15],[]], execute_now=True)
+        await self.plan([[self.tag_x,self.tag_y-0.06,0.15],[]], execute_now=True,is_cart=True)
         await self.plan([[],[pi,0.0,self.tag_az]], execute_now=True)
-        
-        # self.grasp(width=0.04,force=90.0)
+        await self.plan([[self.tag_x,self.tag_y-0.06,0.02],[]], execute_now=True,is_cart=True)
+        time.sleep(2)
+        self.grasp(width=0.04,force=90.0)
 
         return response
 

@@ -32,6 +32,7 @@ class Camera(Node):
         self.circle_radius_image_near = 250
         self.center = None
         self.image = None
+        self.t = None
 
         # the list of the images will be capped at 10
         self.image_list = []
@@ -55,6 +56,14 @@ class Camera(Node):
         self.circle_service = self.create_service(GetCirclesRqst, "get_circle", self.circle_callback)
         self.pose_service = self.create_service(GetPoseRqst, "get_pose", self.pose_callback)
 
+        self.timer = self.create_timer(1, self.timer_callback)
+
+    def timer_callback(self):
+        if self.detected and self.t:
+            #
+            self.t.header.stamp = self.get_clock().now().to_msg()
+            self.tf_broadcaster.sendTransform(self.t)
+
     def get_info_callback(self, msg):
         self.camera_matrix = np.array(msg.k).reshape((3, 3))
         self.get_logger().info("Camera matrix: \n" + str(self.camera_matrix))
@@ -66,8 +75,8 @@ class Camera(Node):
         self.large_circle_list = []
         self.coarse_positioning = True
         self.fine_positioning = False
-        self.detected = False        
-
+        self.detected = False
+        self.t = None
 
         self.get_circle(self.image)   
 
@@ -94,6 +103,7 @@ class Camera(Node):
     def pose_callback(self, request, response):
         self.fine_positioning = True
         self.coarse_positioning = False
+        self.t = None
         self.get_logger().info("Start pose estimation")
 
         self.get_circle(self.image)
@@ -104,32 +114,32 @@ class Camera(Node):
 
     def broadcast_transform(self, rvec, tvec):
         try:
-            t = TransformStamped()
+            self.t = TransformStamped()
 
-            t.header.stamp = self.get_clock().now().to_msg()
+            self.t.header.stamp = self.get_clock().now().to_msg()
 
             # this frame id will need to match the tag number
             ## TODO
-            t.header.frame_id = 'camera_color_optical_frame'
-            t.child_frame_id = 'tag_0'
+            self.t.header.frame_id = 'camera_color_optical_frame'
+            self.t.child_frame_id = 'tag_0'
 
             # convert translation vector to meters from cm
-            t.transform.translation.x = float(tvec[0] / 100.0)
-            t.transform.translation.y = float(tvec[1] / 100.0)
-            t.transform.translation.z = float(tvec[2] / 100.0)
+            self.t.transform.translation.x = float(tvec[0] / 100.0)
+            self.t.transform.translation.y = float(tvec[1] / 100.0)
+            self.t.transform.translation.z = float(tvec[2] / 100.0)
 
             # convert rotation vector to quaternion
             # convert from (3,1) to (3,)
             rvec = rvec.reshape((3,))
             r = R.from_rotvec(rvec)
             quat = r.as_quat()
-            t.transform.rotation.x = float(quat[0])
-            t.transform.rotation.y = float(quat[1])
-            t.transform.rotation.z = float(quat[2])
-            t.transform.rotation.w = float(quat[3])
+            self.t.transform.rotation.x = float(quat[0])
+            self.t.transform.rotation.y = float(quat[1])
+            self.t.transform.rotation.z = float(quat[2])
+            self.t.transform.rotation.w = float(quat[3])
             self.get_logger().info("Quaternion: " + str(quat))
 
-            self.tf_broadcaster.sendTransform(t)
+            self.tf_broadcaster.sendTransform(self.t)
         except Exception as e:
             self.get_logger().info("Exception: " + str(e))
 
