@@ -21,6 +21,8 @@ rosidl_generate_interfaces(
   "srv/MoveToTrackRqst.srv"
   "srv/GetPoseRqst.srv"
   "srv/GetCirclesRqst.srv"
+  "srv/TrackPoints.srv"
+  "srv/PrintFile.srv"
   "msg/SimpleCartPath.msg"
   "msg/IkGoalRqstMsg.msg"
   "msg/CartIKRequest.msg"
