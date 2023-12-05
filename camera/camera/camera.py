@@ -28,7 +28,7 @@ class Camera(Node):
         self.fine_positioning = False
         self.detected = False
 
-        self.circle_radius_image_far = 55
+        self.circle_radius_image_far = 100
         self.circle_radius_image_near = 250
         self.center = None
         self.image = None
