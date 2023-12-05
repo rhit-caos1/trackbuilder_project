@@ -508,12 +508,15 @@ class MoveBot(Node):
         goal_constraints = Constraints()
 
 
-
+        # last two end effector joint info change to current state
         for i in range(len(self.joint_statesmsg.name)):
             joint_constraints = JointConstraint()
             joint_constraints.joint_name = self.joint_statesmsg.name[i]
-            joint_constraints.position = goal.joint_state.position[i] #goal.joint_state.position[i]
-            
+            if i<len(self.joint_statesmsg.name)-2:
+                joint_constraints.position = goal.joint_state.position[i] #goal.joint_state.position[i]
+            else:
+                joint_constraints.position = start.joint_state.position[i]
+
             joint_constraints.tolerance_above =0.002
             joint_constraints.tolerance_below = 0.002
             joint_constraints.weight = 1.0
