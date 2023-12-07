@@ -34,7 +34,7 @@ class StateMachine(Node):
 
         # define service
         self.home_service = self.create_client(SetBool, 'home_service')
-        self.start_robot_service = self.create_server(SetBool, 'start_robot_service', self.start_robot_callback)
+        self.start_robot_service = self.create_service(SetBool, 'start_robot_service', self.start_robot_callback)
         self.scan_service = self.create_client(TrackPoints, 'scan_service') # change the service type
         self.track_service = self.create_client(SetBool, 'track_service') # change the service type
     
