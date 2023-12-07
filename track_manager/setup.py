@@ -23,6 +23,7 @@ setup(
             'printer = track_manager.printer:main',
             'track = track_manager.track_gen:main',
             'state_machine = track_manager.state_machine:main',
+            'sm_test = track_manager.sm_test:main',
         ],
     },
 )
