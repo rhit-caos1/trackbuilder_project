@@ -48,11 +48,11 @@ class StateMachine(Node):
         self.timer = self.create_timer(1, self.timer_callback) # update the state every 1 second
 
         self.get_logger().info("State machine initialized!")
-        self.get_logger().info("current state " + self.state)
+        self.get_logger().info("current state " + self.state.name)
     
     ########Service Callbacks########
     def timer_callback(self):
-        self.get_logger().info("current state " + self.state)
+        self.get_logger().info("current state " + self.state.name)
         if self.state == State.WAITING:
             self.waiting()
         elif self.state == State.HOME:
