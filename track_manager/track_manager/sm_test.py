@@ -17,10 +17,29 @@ class Test(Node):
     def __init__(self):
         super().__init__('Test')
 
-        self.home_service = self.create_client(SetBool, 'home_service')
-        self.start_robot_service = self.create_server(SetBool, 'start_robot_service', self.start_robot_callback)
-        self.scan_service = self.create_client(TrackPoints, 'scan_service') # change the service type
-        self.track_service = self.create_client(SetBool, 'track_service') # change the service type
+        self.home_service = self.create_service(SetBool, 'home_service', self.home_callback)
+        self.scan_service = self.create_service(TrackPoints, 'scan_service', self.scan_callback)
+        self.track_service = self.create_service(SetBool, 'track_service', self.track_callback)
+    
+
+    def home_callback(self, request, response):
+        self.get_logger().info("home callback")
+        response = SetBool.Response()
+        response.success = True
+        return response
+    
+    def scan_callback(self, request, response):
+        self.get_logger().info("scan callback")
+        response = TrackPoints.Response()
+        response.x = 0 
+        response.y = 0
+        response.theta = 0
+        return response
+    
+    def track_callback(self, request, response):
+        self.get_logger().info("track callback")
+        response.success = True
+        return response
     
 def main(args=None):
     rclpy.init(args=args)
