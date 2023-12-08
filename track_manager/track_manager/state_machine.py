@@ -28,6 +28,7 @@ class StateMachine(Node):
         self.state = State.WAITING
         self.in_motion = False
         self.prev_state = None
+        self.print_name = None
         self.cbgroup = ReentrantCallbackGroup()
         self.cbgroup_timer = MutuallyExclusiveCallbackGroup()
         self.all_region_scanned = False
@@ -50,7 +51,7 @@ class StateMachine(Node):
         self.start_robot_service = self.create_service(Empty, 'start_robot_service', self.start_robot_callback)
         self.scan_service = self.create_client(ScanPoints, 'scan_service') # change the service type
         self.track_service = self.create_client(TrackPoints, 'track_service') # change the service type
-        
+        self.print_service = self.create_client(SetBool, 'print_service') # change the service type
         
         self.home_service.wait_for_service()
         self.scan_service.wait_for_service()
@@ -178,8 +179,15 @@ class StateMachine(Node):
     async def track(self):
         rqst = TrackPoints.Request()  
         # TO DO: need to keep track of what tags have already been generated and printed
-        response = await self.track_service.call_async(rqst)
-        if response.success:
+        self.future = await self.track_service.call_async(rqst)
+        self.print_name = self.future.file_names
+
+        if self.future.last_piece == True:
+            # that means we have finished printing all the pieces for this tag
+            # TODO: manage the tag
+            pass
+
+        if self.print_name is not None:
             self.get_logger().info("Track service success")
             self.state = State.PRINTING
         else:

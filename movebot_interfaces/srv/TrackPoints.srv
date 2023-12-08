@@ -1,5 +1,5 @@
 float64[] position
 float64[] angle
 ---
-bool success
+bool last_piece
 string file_names
