@@ -24,13 +24,13 @@ class Test(Node):
 
     def home_callback(self, request, response):
         self.get_logger().info("home callback")
-        response = SetBool.Response()
         response.success = True
+        response.message = "home success"
+        self.get_logger().info("complete")
         return response
     
     def scan_callback(self, request, response):
         self.get_logger().info("scan callback")
-        response = TrackPoints.Response()
         response.x = 0 
         response.y = 0
         response.theta = 0
