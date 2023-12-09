@@ -130,6 +130,11 @@ class PandaControl(Node):
             Empty, "rotate_90", self.rotate_90_srv
         )
 
+        self.gripper_force_sevice = self.create_service(
+            MoveToTrackRqst, "gripper_force", self.gripper_force_srv
+        )
+
+
         self.timer = self.create_timer(2, self.timer_callback)
         self.i = 0
 
@@ -185,7 +190,7 @@ class PandaControl(Node):
         except:
             self.get_logger().info("unable to find tf")
 
-    def grasp(self, width, speed=1.0, force=30.0, epsilon=(0.005, 0.005)):
+    def grasp(self, width, speed=0.01, force=30.0, epsilon=(0.005, 0.005)):
         """
         Grasps an object. It can fail if the width is not accurate
 
@@ -427,9 +432,22 @@ class PandaControl(Node):
             self.get_logger().info(f" tag detected! y = {self.tag_y}")
             self.get_logger().info(f" tag detected! az = {self.tag_az}")
 
-        await self.plan([[self.tag_x,self.tag_y-0.06,0.15],[]], execute_now=True,is_cart=True)
+        Transform_matrix = np.array([[1,0,0.03],
+                                     [0,1,-0.06],
+                                     [0,0,1]])
+        Tag_matrix = np.array([[np.cos(self.tag_az),-np.sin(self.tag_az),self.tag_x],
+                                [np.sin(self.tag_az),np.cos(self.tag_az),self.tag_y],
+                                [0,0,1]])
+        end_pose = np.dot(Tag_matrix,Transform_matrix)
+        head_x = end_pose[0][2]
+        head_y = end_pose[1][2]
+        self.get_logger().info(f"track end pose! {end_pose}")
+        self.get_logger().info(f"track head! x = {head_x}, y = {head_y}")
+
+        # await self.plan([[self.tag_x+0.03*np.sin(self.tag_az),self.tag_y-0.06*np.cos(self.tag_az),0.15],[]], execute_now=True,is_cart=True)
+        await self.plan([[head_x,head_y,0.15],[]], execute_now=True,is_cart=True)
         await self.plan([[],[pi,0.0,self.tag_az]], execute_now=True)
-        await self.plan([[self.tag_x,self.tag_y-0.06,0.02],[]], execute_now=True,is_cart=True)
+        await self.plan([[head_x,head_y,0.02],[]], execute_now=True,is_cart=True)
         time.sleep(2)
         self.grasp(width=0.04,force=90.0)
 
@@ -486,6 +504,13 @@ class PandaControl(Node):
 
         return response
 
+    def gripper_force_srv(self,request,response):
+
+        pose = float(request.x)
+        force = float(request.y)
+        speed = float(request.yaw)
+        self.grasp(width=pose,force=force,speed=speed)
+        return response
 
 def main(args=None):
     rclpy.init(args=args)
