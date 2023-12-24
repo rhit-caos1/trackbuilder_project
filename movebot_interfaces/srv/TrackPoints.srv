@@ -2,4 +2,5 @@ float64[] position
 float64[] angle
 ---
 bool last_piece
+float64[] track_end
 string file_names
