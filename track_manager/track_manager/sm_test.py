@@ -9,7 +9,7 @@ import numpy as np
 from std_srvs.srv import SetBool, Empty
 import os
 from enum import Enum, auto
-from movebot_interfaces.srv import TrackPoints, ScanPoints
+from movebot_interfaces.srv import TrackPoints, ScanPoints, PrintFile
 import random
 
 
@@ -21,7 +21,7 @@ class Test(Node):
         self.home_service = self.create_service(SetBool, 'home_service', self.home_callback)
         self.scan_service = self.create_service(ScanPoints, 'scan_service', self.scan_callback)
         self.track_service = self.create_service(TrackPoints, 'track_service', self.track_callback)
-        self.print_service = self.create_service(SetBool, 'print_service', self.print_callback)
+        self.print_service = self.create_service(PrintFile, 'print_service', self.print_callback)
         self.grasp_service = self.create_service(ScanPoints, 'grasp_service', self.grasp_callback)
         self.place_service = self.create_service(ScanPoints, 'place_service', self.place_callback)
 
@@ -44,6 +44,11 @@ class Test(Node):
             response.y = 5.0
             response.theta = 0.0
             response.success = True
+        elif self.scan_counter == 2:
+            response.x = -3.0
+            response.y = 5.0
+            response.theta = 0.0
+            response.success = True
 
         self.scan_counter += 1
         return response
@@ -51,7 +56,7 @@ class Test(Node):
     def track_callback(self, request, response):
         self.get_logger().info("track callback")
         response.last_piece = False
-
+        response.track_end = [1.5 , 0.5, 0.0]
         return response
     
     def print_callback(self, request, response):
