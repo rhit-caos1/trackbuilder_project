@@ -24,6 +24,7 @@ rosidl_generate_interfaces(
   "srv/TrackPoints.srv"
   "srv/PrintFile.srv"
   "srv/ScanPoints.srv"
+  "srv/PrinterStatus.srv"
   "msg/SimpleCartPath.msg"
   "msg/IkGoalRqstMsg.msg"
   "msg/CartIKRequest.msg"

@@ -9,7 +9,7 @@ import numpy as np
 # using the octorest library. we do have our own implementation of the octorest library, but it is not working
 from octorest import OctoRest
 from std_srvs.srv import SetBool, Empty
-from movebot_interfaces.srv import PrintFile
+from movebot_interfaces.srv import PrintFile, PrinterStatus
 import os
 
 
@@ -27,7 +27,7 @@ class Printer(Node):
         self.upload_service = self.create_service(PrintFile, 'upload', self.upload_callback)
         self.disconnect_service = self.create_service(Empty, 'disconnect', self.disconnect_callback)
         self.print_service = self.create_service(SetBool, 'print', self.print_callback)
-        self.check_status = self.create_service(SetBool, 'check_status', self.check_status_callback)
+        self.check_print = self.create_service(PrinterStatus, 'check_print', self.check_print_callback)
     
     def connect_callback(self, request, response):
         try:
@@ -96,23 +96,38 @@ class Printer(Node):
             response.data = False
             return response
 
-    def check_status_callback(self, request, response):
+    def check_print_callback(self, request, response):
         try:
-            status = self.client.printer()['state']['flags']['printing']
+            self.get_logger().info("Checking printer status!")
+            res = self.client.job_info()
+            # self.get_logger().info(str(res))
+            status = str(res['state'])
             self.get_logger().info(status)
-            # convert status to bool
-            status = bool(status)
-            response.success = status
-            if status:
+            
+            if status == "Printing":
+                response.printing = True
+                time_left = res['progress']['printTimeLeft']
+                response.time_left = float(time_left)
+
+            elif status == "Operational":
+                response.printing = False
+                response.time_left = float(-1)
+            
+            elif status == "Error" or status == "Offline" or status == "Offline after error":
+                response.printing = False
+                response.time_left = float(-2)
+            
+            if response.printing:
                 self.get_logger().info("Printer is printing!")
             else:
                 self.get_logger().info("Printer is not printing!")
-            
-            return response
-        except:
-            self.get_logger().info("Failed to get printer status!")
-            return response
 
+            return response
+        except Exception as e:
+            self.get_logger().info("Failed to get printer status!")
+            self.get_logger().info(e)
+            return response
+        
 def main(args=None):
     rclpy.init(args=args)
     node = Printer()
