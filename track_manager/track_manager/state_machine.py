@@ -302,16 +302,28 @@ class StateMachine(Node):
         # perform the transformation
         # call the place service
         rqst = ScanPoints.Request() 
-        rqst.x = 0.0
-        rqst.y = 0.0
-        rqst.theta = 0.0
+
+        # compute where to place the object
+        self.end_left = self.global_end(self.tag_location[self.left_pointer], self.track_end[self.left_pointer])
+        transformation = np.array([[np.cos(self.end_left[2]), -np.sin(self.end_left[2]), self.end_left[0]],
+                                   [np.sin(self.end_left[2]), np.cos(self.end_left[2]), self.end_left[1]],
+                                   [0.0, 0.0, 1.0]])
+        
+        place_point = np.array([[5.0], [0.0], [1.0]])
+        place_point_transformed = np.matmul(transformation, place_point)
+        self.get_logger().info("place point transformed: " + str(place_point_transformed))
+        
+        
+        rqst.x = place_point_transformed[0]
+        rqst.y = place_point_transformed[1]
+        rqst.theta = self.end_left[2]
         self.future = await self.place_service.call_async(rqst)
 
         if self.future.success:
             self.get_logger().info("Place service success")
-
-            #TODO CHANGE THIS
-            self.scan_region.append([self.future.x, self.future.y, False])
+            tag_location = np.array([[5.0], [-5.0], [1.0]])
+            tag_location_predicted = np.matmul(transformation, tag_location)
+            self.scan_region.append([tag_location_predicted[0], tag_location_predicted[1], False])
             self.state = State.SCAN
     
     ########Helper Functions########
@@ -340,7 +352,6 @@ class StateMachine(Node):
         self.get_logger().info("end location in global frame: " + str(end_global))
         end_global = [end_global[0], end_global[1], tag_location[2] + end_location[2]]
         return end_global
-    
     
 def main(args=None):
     rclpy.init(args=args)

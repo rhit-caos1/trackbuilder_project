@@ -8,7 +8,7 @@ from std_msgs.msg import Bool
 import numpy as np
 # using the octorest library. we do have our own implementation of the octorest library, but it is not working
 from octorest import OctoRest
-from std_srvs.srv import SetBool
+from std_srvs.srv import SetBool, Empty
 from movebot_interfaces.srv import PrintFile
 import os
 
@@ -20,58 +20,74 @@ class Printer(Node):
         self.base_address = "http://10.106.4.208"
         self.client = None
         self.path = None
+        self.current_dir = os.getcwd()
 
         # define service
-        self.connect_service = self.create_service(SetBool, 'connect', self.connect_callback)
+        self.connect_service = self.create_service(Empty, 'connect', self.connect_callback)
         self.upload_service = self.create_service(PrintFile, 'upload', self.upload_callback)
-        self.disconnect_service = self.create_service(SetBool, 'disconnect', self.disconnect_callback)
-        self.print_service = self.create_service(PrintFile, 'print', self.print_callback)
+        self.disconnect_service = self.create_service(Empty, 'disconnect', self.disconnect_callback)
+        self.print_service = self.create_service(SetBool, 'print', self.print_callback)
+        self.check_status = self.create_service(SetBool, 'check_status', self.check_status_callback)
     
     def connect_callback(self, request, response):
         try:
             self.client = OctoRest(url=self.base_address, apikey=self.API_KEY)
-            response.success = True
-            self.get_logger().info("Connected to printer!")
+            if self.client is None:
+                self.get_logger().info("Failed to connect to printer!")
+                raise Exception("Failed to connect to printer!")
+            else:
+                self.get_logger().info("Connected to printer!")
+            
             return response
+
         except Exception as e:
-            response.success = False
             self.get_logger().info("Failed to connect to printer!")
             self.get_logger().info(e)
             return response
 
     def disconnect_callback(self, request, response):
-        response.success = True
         self.client.disconnect()
         self.client = None
         self.get_logger().info("Disconnected from printer!")
         return response
 
     def upload_callback(self, request, response):
-        file_path = request.data
+        file_path = request.file_names
         self.path = file_path
+        # for testing 
+        file_path = self.current_dir + "/ws_train/src/track_manager/track_manager/gcode/testing1228.gcode"
+        self.path = file_path
+        self.get_logger().info(file_path)
+        # check if file exists
+
+        if not os.path.exists(file_path):
+            self.get_logger().info("File does not exist!")
+            response.success = False
+            return response
+    
         try:
             if self.client is None:
                 self.connect()
             self.client.upload(file_path)
-            response.data = True
+            response.success = True
             self.get_logger().info("Uploaded file to printer!")
             return response
         except Exception as e:
             self.get_logger().info("Failed to upload file to printer!")
             self.get_logger().info(e)
-            response.data = False
+            response.success = False
             return response
     
     def print_callback(self, request, response):
-        if request.data is None:
-            file_name = self.path
-        else:
-            file_name = request.data
+        if request.data is False:
+            # return 
+            response.success = False
+            return response
 
         try:
             if self.client is None:
-                self.connect()
-            self.client.select(file_name, print=True)
+                raise Exception("Printer not connected!")
+            self.client.select(self.path, print=True)
             self.get_logger().info("Printing file!")
             response.data = True
             return response
@@ -80,16 +96,22 @@ class Printer(Node):
             response.data = False
             return response
 
-    def get_status(self):
+    def check_status_callback(self, request, response):
         try:
             status = self.client.printer()['state']['flags']['printing']
+            self.get_logger().info(status)
+            # convert status to bool
+            status = bool(status)
+            response.success = status
             if status:
                 self.get_logger().info("Printer is printing!")
             else:
                 self.get_logger().info("Printer is not printing!")
+            
+            return response
         except:
             self.get_logger().info("Failed to get printer status!")
-            return None
+            return response
 
 def main(args=None):
     rclpy.init(args=args)
