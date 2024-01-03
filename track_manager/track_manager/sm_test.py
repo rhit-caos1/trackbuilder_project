@@ -12,8 +12,6 @@ from enum import Enum, auto
 from movebot_interfaces.srv import TrackPoints, ScanPoints, PrintFile
 import random
 
-
-
 class Test(Node):
     def __init__(self):
         super().__init__('Test')

@@ -1,6 +1,7 @@
 # this node would attempt to connect to the printer 
 import rclpy
 import time
+from pathlib import Path
 from rclpy.node import Node
 from math import pi
 from std_msgs.msg import String
@@ -51,7 +52,13 @@ class StateMachine(Node):
 
         # open points.txt and read the points
         self.current_dir = os.getcwd()
-        with open(self.current_dir + "/src/track_manager/track_manager/points.txt", "r") as f:
+        self.track_manager_dir = self.current_dir + "/ws_train/src/track_manager/track_manager/"
+        self.get_logger().info("current dir: " + self.current_dir)
+        self.get_logger().info("track dir: " + self.track_manager_dir)
+        self.points = "points.txt"
+        self.track_end_file = "track_end.txt"
+
+        with open(self.track_manager_dir + self.points, "r") as f:
             for line in f:
                 # split the line by space
                 line = line.split(" ")
@@ -62,7 +69,7 @@ class StateMachine(Node):
                 self.tag_location.append(tag)
 
                 
-        with open(self.current_dir + "/src/track_manager/track_manager/track_end.txt", "r") as f:
+        with open(self.track_manager_dir + self.track_end_file, "r") as f:
             for line in f:
                 # split the line by space
                 # note that this in the track frame
@@ -199,14 +206,14 @@ class StateMachine(Node):
                 self.track_end.insert(self.left_pointer,self.track_end_generated_last)
 
                  # write the points to the file
-                with open(self.current_dir + "/src/track_manager/track_manager/points.txt", "w") as f:
+                with open(self.track_manager_dir + self.points, "w") as f:
                     f.seek(0)
                     f.truncate()
                     for pose in self.tag_location:
                         f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
 
                 # also change the track end
-                with open(self.current_dir + "/src/track_manager/track_manager/track_end.txt", "w") as f:
+                with open(self.track_manager_dir + self.track_end_file, "w") as f:
                     f.seek(0)
                     f.truncate()
                     for track in self.track_end:
@@ -217,12 +224,12 @@ class StateMachine(Node):
                 self.tag_location.append(tag_pose)
                 
                 # write the points to the file
-                with open(self.current_dir + "/src/track_manager/track_manager/points.txt", "w") as f:
+                with open(self.track_manager_dir + self.points, "w") as f:
                     for pose in self.tag_location:
                         f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
             
             elif exist:
-                with open(self.current_dir + "/src/track_manager/track_manager/points.txt", "w") as f:
+                with open(self.track_manager_dir + self.points, "w") as f:
                     f.seek(0)
                     f.truncate()
                     for pose in self.tag_location:
@@ -304,12 +311,15 @@ class StateMachine(Node):
         rqst = ScanPoints.Request() 
 
         # compute where to place the object
-        self.end_left = self.global_end(self.tag_location[self.left_pointer], self.track_end[self.left_pointer])
+        self.get_logger().info("left pointer: " + str(self.left_pointer))
+
+        self.end_left = self.global_end(self.tag_location[self.left_pointer - 1], self.track_end[self.left_pointer - 1])
+
         transformation = np.array([[np.cos(self.end_left[2]), -np.sin(self.end_left[2]), self.end_left[0]],
                                    [np.sin(self.end_left[2]), np.cos(self.end_left[2]), self.end_left[1]],
                                    [0.0, 0.0, 1.0]])
         
-        place_point = np.array([[5.0], [0.0], [1.0]])
+        place_point = np.array([0.5, 0.0, 1.0])
         place_point_transformed = np.matmul(transformation, place_point)
         self.get_logger().info("place point transformed: " + str(place_point_transformed))
         
@@ -321,7 +331,7 @@ class StateMachine(Node):
 
         if self.future.success:
             self.get_logger().info("Place service success")
-            tag_location = np.array([[5.0], [-5.0], [1.0]])
+            tag_location = np.array([0.5, -0.5, 1.0])
             tag_location_predicted = np.matmul(transformation, tag_location)
             self.scan_region.append([tag_location_predicted[0], tag_location_predicted[1], False])
             self.state = State.SCAN
