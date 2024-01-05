@@ -28,7 +28,7 @@ class StateMachine(Node):
         super().__init__('state_machine')
 
         ########PARAMETERS########
-        self.scan_region = [[0.0, 0.0, False], [1.0, 0.0, False]] # define the scan region
+        self.scan_region = [[44.0, 10.0, False], [44.0, -10.0, False]] # define the scan region
         self.tolerance = 0.2 # define the tolerance for the scan region, the unit is in m
         self.printer_scan_location = [0.0,0.0]
         ##########################
@@ -172,7 +172,10 @@ class StateMachine(Node):
         # transition to track if all the points have been scanned
         if point_scan_next is None:
             self.all_region_scanned = True
-            self.state = State.TRACK
+
+            # block it so that it never actually enters the next state
+            self.get_logger().info("about to enter track state")
+            # self.state = State.TRACK
             self.initial_scan = False
             return 
         
