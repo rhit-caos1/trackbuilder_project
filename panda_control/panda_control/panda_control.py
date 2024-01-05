@@ -1,9 +1,10 @@
 import rclpy
 import time
 from rclpy.node import Node
-from rclpy.callback_groups import ReentrantCallbackGroup
-from std_srvs.srv import Empty
-from movebot_interfaces.srv import AddBox, GetPlanRqst, MoveToTrackRqst,GetCirclesRqst,GetPoseRqst
+from rclpy.duration import Duration
+from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
+from std_srvs.srv import SetBool, Empty
+from movebot_interfaces.srv import AddBox, GetPlanRqst, MoveToTrackRqst,GetCirclesRqst,GetPoseRqst, ScanPoints
 from geometry_msgs.msg import Pose
 from rclpy.action import ActionClient
 from control_msgs.action import GripperCommand
@@ -58,6 +59,7 @@ class PandaControl(Node):
     def __init__(self):
         super().__init__('panda_control')
         self.cbgroup = ReentrantCallbackGroup()
+        self.timer_cbgroup = MutuallyExclusiveCallbackGroup()
         # Subscribe to object positions from computer vision
         self.track_tag_sub = self.create_subscription(
             Pose, "track_tag_xzy", self.get_track_pose_callback, 10
@@ -81,6 +83,7 @@ class PandaControl(Node):
             GetPoseRqst, "get_pose", callback_group=self.cbgroup
         )
 
+        self.get_tag_client = self.create_client(ScanPoints,"tag_detect",callback_group=self.cbgroup)
 
 
         # self.execute_final_path_client = self.create_service(
@@ -122,9 +125,7 @@ class PandaControl(Node):
             MoveToTrackRqst, "move_track_cart", self.move_track_cart_srv
         )
 
-        self.grasp_track_sevice = self.create_service(
-            Empty, "grasp_track", self.grasp_track_srv
-        )
+        
 
         self.rotate_90_sevice = self.create_service(
             Empty, "rotate_90", self.rotate_90_srv
@@ -134,12 +135,29 @@ class PandaControl(Node):
             MoveToTrackRqst, "gripper_force", self.gripper_force_srv
         )
 
+        self.scan_tags_service = self.create_service(
+            ScanPoints, 'scan_service', self.scan_srv
+        )
+        self.fine_scan_tags_service = self.create_service(
+            ScanPoints, 'fine_scan_service', self.fine_scan_srv
+        )
+        self.grasp_track_sevice = self.create_service(
+            ScanPoints, "grasp_service", self.grasp_track_srv
+        )
 
-        self.timer = self.create_timer(2, self.timer_callback)
+        self.drop_track_sevice = self.create_service(
+            ScanPoints, "drop_service", self.drop_track_srv
+        )
+
+        self.home_sevice = self.create_service(
+            SetBool, "home_service", self.home_srv
+        )
+
+        self.timer = self.create_timer(1, self.timer_callback, callback_group= self.timer_cbgroup)
         self.i = 0
 
         # Create a listener to recieve the TF's from each tag to the camera
-        self.tf_buffer = Buffer()
+        self.tf_buffer = Buffer(cache_time=rclpy.duration.Duration(seconds = 10))
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.tag_x = 0
@@ -163,8 +181,10 @@ class PandaControl(Node):
         #         tag_2_base.transform.rotation.w,
         #     )
 
-        # except:
-        #     pass
+        # except Exception as e:
+        #     self.get_logger().info("error in the timer")
+        #     self.get_logger().info(f"error: {e}")
+
         self.get_logger().info('Publishing: "%s"' % self.i)
         self.i+=1
     
@@ -173,22 +193,30 @@ class PandaControl(Node):
         self.track_pose = pose_msg
 
     def get_tag_pose(self):
-        try:
-            tag_2_base = self.tf_buffer.lookup_transform(
-                'panda_link0',
-                'tag_0',
-                rclpy.time.Time())
-            self.tag_x = tag_2_base.transform.translation.x
-            self.tag_y = tag_2_base.transform.translation.y
-            tag_ax,tag_ay,self.tag_az = euler_from_quaternion(
-                tag_2_base.transform.rotation.x,
-                tag_2_base.transform.rotation.y,
-                tag_2_base.transform.rotation.z,
-                tag_2_base.transform.rotation.w,
-            )
+        pose_received = False
+        while not pose_received:
+            rclpy.spin_once(self)
+            try:
+                # delay_duration = Duration(seconds=self.get_clock().now())
 
-        except:
-            self.get_logger().info("unable to find tf")
+                tag_2_base = self.tf_buffer.lookup_transform(
+                    'panda_link0',
+                    'tag_0',
+                    rclpy.time.Time(),
+                    timeout=rclpy.duration.Duration(seconds = 1))
+                self.tag_x = tag_2_base.transform.translation.x
+                self.tag_y = tag_2_base.transform.translation.y
+                tag_ax,tag_ay,self.tag_az = euler_from_quaternion(
+                    tag_2_base.transform.rotation.x,
+                    tag_2_base.transform.rotation.y,
+                    tag_2_base.transform.rotation.z,
+                    tag_2_base.transform.rotation.w,
+                )
+                pose_received = True
+
+            except Exception as e:
+                self.get_logger().info("unable to find tf")
+                self.get_logger().info(f"error: {e}")
 
     def grasp(self, width, speed=0.01, force=30.0, epsilon=(0.005, 0.005)):
         """
@@ -421,12 +449,237 @@ class PandaControl(Node):
 
         return response
     
+    async def scan_srv(self,request,response):
+        # Service contain the process to scan tags in a certain area
+        z_0 = 0.48688
+        z_1 = 0.15
+
+        correction_num = 0.0002
+
+        center_x = 0.30689
+        center_y = 0.0
+        # Home robot to prevent some unable plan warning
+        await self.plan(self.waypoints.send_home, execute_now=True)
+        self.get_logger().info(f" FINISHED EXECUTING home")
+
+        # Go to Expected Place
+        scan_x, scan_y = request.x,request.y
+        await self.plan([[scan_x,scan_y,z_0],[]],execute_now=True,is_cart=True)
+        self.get_logger().info(f" FINISHED Moving to target")
+
+        circles_response = await self.get_cricles_client.call_async(GetCirclesRqst.Request())
+        self.get_logger().info(f" print response x: {circles_response.x}")
+        self.get_logger().info(f" print response y: {circles_response.y}")
+        circle_num = len(circles_response.x)
+
+        # init response state
+        response.success = False
+
+        for i in range(circle_num):
+            centered = False
+            #get x and y in pixel frame
+            x_pix = float(circles_response.x[i])
+            y_pix = float(circles_response.y[i])
+            x = center_x+float(circles_response.x[i])*correction_num*1.5
+            y = center_y+float(circles_response.y[i])*correction_num*1.5
+            self.get_logger().info(f" expected tag x pix: {x_pix}")
+            self.get_logger().info(f" expected tag y pix: {y_pix}")
+            self.get_logger().info(f" expected tag x: {x}")
+            self.get_logger().info(f" expected tag y: {y}")
+            while not centered:
+                time.sleep(2)
+                # move to next point
+                await self.plan([[x,y,z_0],[]],execute_now=True,is_cart=True)
+                # save the rotation
+                await self.plan([[],[pi,0,0]],execute_now=True)
+                time.sleep(2)
+                new_circles_response = await self.get_cricles_client.call_async(GetCirclesRqst.Request())
+                # ##############!!!!!!!!!!!!!!!###################
+                # # fix the flipped axis!!!!!!!!!!!!!!!!!
+                # # Change it back if camera is fixed!!!!!!!!
+                # y_list = new_circles_response.x
+                # new_circles_response.x = new_circles_response.y
+                # new_circles_response.y = y_list
+                #####################################
+                new_circles_pose = np.column_stack((new_circles_response.x,new_circles_response.y))
+                self.get_logger().info(f" poses: {new_circles_pose}")
+                min_index = least_sqare_point(new_circles_pose,[0,0])
+                new_x = float(new_circles_response.x[min_index])
+                new_y = float(new_circles_response.y[min_index])
+                self.get_logger().info(f" new x: {new_x}")
+                self.get_logger().info(f" new y: {new_y}")
+                if np.abs(new_x)<30 and np.abs(new_y)<30:
+                    centered = True
+                else:
+                    x = x+new_x*correction_num
+                    y = y+new_y*correction_num
+                    self.get_logger().info(f" expected tag x: {x}")
+                    self.get_logger().info(f" expected tag y: {y}")
+            await self.plan([[x,y,z_1],[]],execute_now=True,is_cart=True)
+            pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
+            if pose_response.detected == True:
+
+                # self.get_tag_pose()
+                tag_request = ScanPoints.Request()
+                tag_request.x = 0.0
+                tag_request.y = 0.0
+                tag_request.theta = 0.0
+                tag_response = await self.get_tag_client.call_async(tag_request)
+                self.get_logger().info(f"{tag_response.success}")
+                while not tag_response.success:
+                    tag_response = await self.get_tag_client.call_async(tag_request)
+                    time.sleep(1)
+                    self.get_logger().info(f" loop ")
+
+                self.tag_x = tag_response.x
+                self.tag_y = tag_response.y
+                self.tag_az = tag_response.theta
+
+                self.tags_list.append([self.tag_x,self.tag_y,self.tag_az])
+                self.get_logger().info(f" tag detected! x = {self.tag_x}")
+                self.get_logger().info(f" tag detected! y = {self.tag_y}")
+                self.get_logger().info(f" tag detected! az = {self.tag_az}")
+                response.success = True
+                response.x = self.tag_x
+                response.y = self.tag_y
+                response.theta = self.tag_az
+
+        return response
+    
+    async def fine_scan_srv(self,request,response):
+        # Service contain the process to scan tags in a certain area
+        z_0 = 0.25
+        z_1 = 0.15
+
+        correction_num = 0.0002
+
+        center_x = 0.30689
+        center_y = 0.0
+        # Home robot to prevent some unable plan warning
+        await self.plan(self.waypoints.send_home, execute_now=True)
+        self.get_logger().info(f" FINISHED EXECUTING home")
+
+        # Go to Expected Place
+        scan_x, scan_y = request.x,request.y
+        await self.plan([[scan_x,scan_y,z_0],[]],execute_now=True,is_cart=True)
+        self.get_logger().info(f" FINISHED Moving to target")
+
+        circles_response = await self.get_cricles_client.call_async(GetCirclesRqst.Request())
+        self.get_logger().info(f" print response x: {circles_response.x}")
+        self.get_logger().info(f" print response y: {circles_response.y}")
+        circle_num = len(circles_response.x)
+        # init response state
+        response.success = False
+
+        if circle_num == 1:
+
+            
+
+        
+            centered = False
+            #get x and y in pixel frame
+            x_pix = float(circles_response.x[0])
+            y_pix = float(circles_response.y[0])
+            x = center_x+float(circles_response.x[0])*correction_num*1.5
+            y = center_y+float(circles_response.y[0])*correction_num*1.5
+            self.get_logger().info(f" expected tag x pix: {x_pix}")
+            self.get_logger().info(f" expected tag y pix: {y_pix}")
+            self.get_logger().info(f" expected tag x: {x}")
+            self.get_logger().info(f" expected tag y: {y}")
+            while not centered:
+                time.sleep(2)
+                # move to next point
+                await self.plan([[x,y,z_0],[]],execute_now=True,is_cart=True)
+                # save the rotation
+                await self.plan([[],[pi,0,0]],execute_now=True)
+                time.sleep(2)
+                new_circles_response = await self.get_cricles_client.call_async(GetCirclesRqst.Request())
+                # ##############!!!!!!!!!!!!!!!###################
+                # # fix the flipped axis!!!!!!!!!!!!!!!!!
+                # # Change it back if camera is fixed!!!!!!!!
+                # y_list = new_circles_response.x
+                # new_circles_response.x = new_circles_response.y
+                # new_circles_response.y = y_list
+                #####################################
+                new_circles_pose = np.column_stack((new_circles_response.x,new_circles_response.y))
+                self.get_logger().info(f" poses: {new_circles_pose}")
+                min_index = least_sqare_point(new_circles_pose,[0,0])
+                new_x = float(new_circles_response.x[min_index])
+                new_y = float(new_circles_response.y[min_index])
+                self.get_logger().info(f" new x: {new_x}")
+                self.get_logger().info(f" new y: {new_y}")
+                if np.abs(new_x)<30 and np.abs(new_y)<30:
+                    centered = True
+                else:
+                    x = x+new_x*correction_num
+                    y = y+new_y*correction_num
+                    self.get_logger().info(f" expected tag x: {x}")
+                    self.get_logger().info(f" expected tag y: {y}")
+            await self.plan([[x,y,z_1],[]],execute_now=True,is_cart=True)
+            pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
+            if pose_response.detected == True:
+                # self.get_tag_pose()
+                tag_request = ScanPoints.Request()
+                tag_request.x = 0.0
+                tag_request.y = 0.0
+                tag_request.theta = 0.0
+                tag_response = await self.get_tag_client.call_async(tag_request)
+                self.get_logger().info(f"{tag_response.success}")
+                while not tag_response.success:
+                    tag_response = await self.get_tag_client.call_async(tag_request)
+                    time.sleep(1)
+                    self.get_logger().info(f" loop ")
+
+                self.tag_x = tag_response.x
+                self.tag_y = tag_response.y
+                self.tag_az = tag_response.theta
+
+                self.tags_list.append([self.tag_x,self.tag_y,self.tag_az])
+                self.get_logger().info(f" tag detected! x = {self.tag_x}")
+                self.get_logger().info(f" tag detected! y = {self.tag_y}")
+                self.get_logger().info(f" tag detected! az = {self.tag_az}")
+                response.success = True
+                response.x = self.tag_x
+                response.y = self.tag_y
+                response.theta = self.tag_az
+
+            return response
+        
+        else:
+            self.get_logger().info(f" incorrect circle detection! num = {circle_num}")
+            return response
+    
     async def grasp_track_srv(self,request,response):
         time.sleep(1)
         self.grasp(width=0.1,force=00.0)
+        z_0 = 0.17
+
+        # Home robot to prevent some unable plan warning
+        await self.plan(self.waypoints.send_home, execute_now=True)
+        self.get_logger().info(f" FINISHED EXECUTING home")
+
+        # Go to Expected Place
+        scan_x, scan_y = request.x,request.y
+        await self.plan([[scan_x,scan_y,z_0],[]],execute_now=True,is_cart=True)
+        self.get_logger().info(f" FINISHED Moving to target")
+
         pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
         if pose_response.detected == True:
-            self.get_tag_pose()
+            # self.get_tag_pose()
+            tag_request = ScanPoints.Request()
+            tag_request.x = 0.0
+            tag_request.y = 0.0
+            tag_request.theta = 0.0
+            tag_response = await self.get_tag_client.call_async(tag_request)
+            self.get_logger().info(f"{tag_response.success}")
+            while not tag_response.success:
+                tag_response = await self.get_tag_client.call_async(tag_request)
+                time.sleep(1)
+                self.get_logger().info(f" loop ")
+            # self.get_tag_pose()
+            self.tag_x = tag_response.x
+            self.tag_y = tag_response.y
+            self.tag_az = tag_response.theta
             self.tags_list.append([self.tag_x,self.tag_y,self.tag_az])
             self.get_logger().info(f" tag detected! x = {self.tag_x}")
             self.get_logger().info(f" tag detected! y = {self.tag_y}")
@@ -451,9 +704,35 @@ class PandaControl(Node):
         time.sleep(2)
         self.grasp(width=0.04,force=90.0)
 
+        response.success = True
+        response.x = 0.0
+        response.y = 0.0
+        response.theta = 0.0
         return response
 
-    
+    async def drop_track_srv(self,request,response):
+        pos_x = request.x
+        pos_y = request.y
+        pos_az = request.theta
+
+        await self.plan(self.waypoints.send_home, execute_now=True)
+
+        await self.plan([[pos_x,pos_y,0.15],[]], execute_now=True,is_cart=True)
+        await self.plan([[],[pi,0.0,pos_az]], execute_now=True)
+        await self.plan([[pos_x,pos_y,0.025],[]], execute_now=True,is_cart=True)
+        time.sleep(2)
+        self.grasp(width=0.1,force=00.0)
+        response.x = 0.0
+        response.y = 0.0
+        response.theta = 0.0
+        response.success = True
+        return response
+
+    async def home_srv(self,request,response):
+        await self.plan(self.waypoints.send_home, execute_now=True)
+        response.success = True
+        return response
+        
     def close_gripper_srv(self,request,response):
         self.grasp(width=0.04,force=90.0)
         return response

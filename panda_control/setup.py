@@ -24,7 +24,8 @@ setup(
     entry_points={
         'console_scripts': [
             'simple_move = movebot.simple_move:main',
-            'panda_control = panda_control.panda_control:main'
+            'panda_control = panda_control.panda_control:main',
+            'tag_tf = panda_control.tag_tf:main'
         ],
     },
 )

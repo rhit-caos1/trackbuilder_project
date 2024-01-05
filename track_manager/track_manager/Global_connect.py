@@ -150,12 +150,12 @@ def gen_train_tracks(starts,start_degs,ends,end_degs,draw_lines=False,base_filen
     status, curves = gen_train_curves(starts,start_degs,ends,end_degs,draw_lines=draw_lines,min_rad=100)
     if status == False:
         print("error, unable to gen")
-        return False,[]
+        return False,[],0
     else:
         trackshape = [[0,0],[20,0],[20,10],[17,10],[17,7],[10,7],[10,10],[0,10],[-10,10],[-10,7],[-17,7],[-17,10],[-20,10],[-20,0]]
 
         filenames = track_to_scad(curves,200,trackshape,to_stl=to_stl)
-        return True, filenames
+        return True, filenames,len(curves)
 
 # if __name__ == "__main__":
 #     starts = np.array([[187.5,-17.5]])

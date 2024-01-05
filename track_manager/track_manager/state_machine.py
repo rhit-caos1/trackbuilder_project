@@ -52,7 +52,7 @@ class StateMachine(Node):
 
         # open points.txt and read the points
         self.current_dir = os.getcwd()
-        self.track_manager_dir = self.current_dir + "/ws_train/src/track_manager/track_manager/"
+        self.track_manager_dir = self.current_dir + "/src/trackbuilder_project/track_manager/track_manager/"
         self.get_logger().info("current dir: " + self.current_dir)
         self.get_logger().info("track dir: " + self.track_manager_dir)
         self.points = "points.txt"

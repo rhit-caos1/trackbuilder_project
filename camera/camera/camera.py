@@ -1,6 +1,7 @@
 import rclpy
 import time
 from scipy.spatial.transform import Rotation as R
+from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
 from rclpy.node import Node
 from math import pi
 from std_msgs.msg import String
@@ -22,6 +23,7 @@ class Camera(Node):
         super().__init__('camera')
         self.camera_matrix = None
         self.distortion_coefficients = None
+        self.timer_cbgroup = MutuallyExclusiveCallbackGroup()
 
         self.large_circle_list = []
         self.coarse_positioning = False
@@ -56,7 +58,7 @@ class Camera(Node):
         self.circle_service = self.create_service(GetCirclesRqst, "get_circle", self.circle_callback)
         self.pose_service = self.create_service(GetPoseRqst, "get_pose", self.pose_callback)
 
-        self.timer = self.create_timer(1, self.timer_callback)
+        self.timer = self.create_timer(0.01, self.timer_callback, callback_group=self.timer_cbgroup)
 
     def timer_callback(self):
         if self.detected and self.t:
@@ -138,7 +140,7 @@ class Camera(Node):
             self.t.transform.rotation.z = float(quat[2])
             self.t.transform.rotation.w = float(quat[3])
             self.get_logger().info("Quaternion: " + str(quat))
-
+            self.detected = True
             self.tf_broadcaster.sendTransform(self.t)
         except Exception as e:
             self.get_logger().info("Exception: " + str(e))
@@ -267,8 +269,6 @@ class Camera(Node):
             image = cv2.drawFrameAxes(image, self.camera_matrix, self.distortion_coefficients, rvec, tvec, 2.5)
 
             self.get_logger().info("Pose estimation successful")
-            self.detected = True
-
             # broadcast transform
             self.broadcast_transform(rvec, tvec)
 

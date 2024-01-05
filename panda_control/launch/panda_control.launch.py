@@ -45,6 +45,12 @@ def generate_launch_description():
         name='panda_control',
     )
 
+    tag_tf = Node(
+        package='panda_control',
+        executable='tag_tf',
+        name='tag_tf',
+    )
+
 
     # Fake hardware rviz
     rviz_fake = ExecuteProcess(
@@ -122,6 +128,12 @@ def generate_launch_description():
                 executable='static_transform_publisher',
                 arguments = ['--x', '0.048', '--y', '-0.02', '--z', '0.065', '--yaw', '0', '--pitch', '-1.570796327', '--roll', '3.141592654', '--frame-id', 'panda_hand', '--child-frame-id', 'camera_link']
             )
+    
+    track_gen_node = Node(
+                package='track_manager',
+                executable='track_gen',
+                name='track_gen'
+            )
 
 
     ld = LaunchDescription([
@@ -129,10 +141,12 @@ def generate_launch_description():
         dwtag_node,
         simple_move,
         # vision,
+        tag_tf,
         rviz_real,
         rviz_fake,
         panda_control,
-        realsense_frame_node
+        realsense_frame_node,
+        track_gen_node
     ])
 
     return ld
