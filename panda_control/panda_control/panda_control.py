@@ -491,7 +491,7 @@ class PandaControl(Node):
             x_pix = float(circles_response.x[i])
             y_pix = float(circles_response.y[i])
             x = center_x+float(circles_response.x[i])*correction_num*1.5
-            y = center_y+float(circles_response.y[i])*correction_num*1.5
+            y = center_y+float(circles_response.y[i])*correction_num*1.5+0.03
             self.get_logger().info(f" expected tag x pix: {x_pix}")
             self.get_logger().info(f" expected tag y pix: {y_pix}")
             self.get_logger().info(f" expected tag x: {x}")
@@ -527,7 +527,7 @@ class PandaControl(Node):
                     self.get_logger().info(f" expected tag x: {x}")
                     self.get_logger().info(f" expected tag y: {y}")
             await self.plan([[x,y,z_1],[]],execute_now=True,is_cart=True)
-            time.sleep(1)
+            time.sleep(3)
             pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
             if pose_response.detected == True:
 
@@ -680,7 +680,7 @@ class PandaControl(Node):
         scan_x, scan_y = request.x,request.y
         await self.plan([[scan_x,scan_y,z_0],[]],execute_now=True,is_cart=True)
         self.get_logger().info(f" FINISHED Moving to target")
-        time.sleep(2)
+        time.sleep(3)
         pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
         if pose_response.detected == True:
             # self.get_tag_pose()

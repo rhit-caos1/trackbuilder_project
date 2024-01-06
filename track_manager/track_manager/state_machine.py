@@ -28,7 +28,7 @@ class StateMachine(Node):
         super().__init__('state_machine')
 
         ########PARAMETERS########
-        self.scan_region = [[0.35, 0.11, False], [0.35, -0.11, False]] # define the scan region
+        self.scan_region = [[0.35, 0.11, False], [0.35, -0.11, True]] # define the scan region
         self.tolerance = 0.03 # define the tolerance for the scan region, the unit is in m
         self.printer_scan_location = [0.3,0.4]
         ##########################
