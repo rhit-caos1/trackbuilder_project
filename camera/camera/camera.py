@@ -103,6 +103,7 @@ class Camera(Node):
         return response
     
     def pose_callback(self, request, response):
+        self.image_list = []  
         self.fine_positioning = True
         self.coarse_positioning = False
         self.t = None
@@ -196,9 +197,7 @@ class Camera(Node):
         elif self.fine_positioning:
 
             pose_avg = []
-            self.image_list = []
-            while len(self.image_list) < 10:
-                self.get_logger().info("Waiting for the image list to be filled")            
+      
             # for loop for the queue
             for i in range(len(self.image_list)):
                 # get the image from the queue
