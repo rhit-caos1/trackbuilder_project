@@ -36,7 +36,7 @@ class Camera(Node):
         self.image = None
         self.t = None
 
-        # the list of the images will be capped at 10
+        # the list of the images will be capped at 5
         self.image_list = []
 
         # define subscriber
@@ -85,7 +85,6 @@ class Camera(Node):
         x = []
         y = []
 
-        # wait for the large circle list to be filled
         self.get_logger().info("size of the list: " + str(len(self.large_circle_list)))
         # define a vector that points to the center of the circle
         if self.large_circle_list is not None:
@@ -152,10 +151,11 @@ class Camera(Node):
         
         self.image = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgra8")
         
-        # keep the image list capped at 10
+        # keep the image list capped at 5
         self.image_list.append(self.image)
         if len(self.image_list) > 5:
             # move everything to the left
+            self.image_list = []
             self.image_list = self.image_list[1:]
 
     def get_circle(self, image):
