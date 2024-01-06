@@ -715,9 +715,9 @@ class PandaControl(Node):
         self.grasp(width=0.04,force=90.0)
 
         response.success = True
-        response.x = 0.0
-        response.y = 0.0
-        response.theta = 0.0
+        response.x = [0.0]
+        response.y = [0.0]
+        response.theta = [0.0]
         return response
 
     async def drop_track_srv(self,request,response):
