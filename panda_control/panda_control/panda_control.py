@@ -239,7 +239,11 @@ class PandaControl(Node):
         self._grasp_client.wait_for_server()
         self.future_grasp_res= self._grasp_client.send_goal_async(goal_msg)
         self.get_logger().info("Done Grasping")
-        # return self.future_grasp_res
+
+        # temperary fix 
+        time.sleep(5)
+
+        # return self.future_grasp_rep
 
     def open_gripper(self):
         """
@@ -254,6 +258,8 @@ class PandaControl(Node):
         self._gripper_action_client.wait_for_server()
         self.future_open_res= self._gripper_action_client.send_goal_async(goal_msg)
         self.get_logger().info("Gripper Open")
+        # temperary fix 
+        time.sleep(5)
         return self.future_open_res
 
     def home_gripper(self):
@@ -485,7 +491,7 @@ class PandaControl(Node):
             x_pix = float(circles_response.x[i])
             y_pix = float(circles_response.y[i])
             x = center_x+float(circles_response.x[i])*correction_num*1.5
-            y = center_y+float(circles_response.y[i])*correction_num*1.5-0.05
+            y = center_y+float(circles_response.y[i])*correction_num*1.5
             self.get_logger().info(f" expected tag x pix: {x_pix}")
             self.get_logger().info(f" expected tag y pix: {y_pix}")
             self.get_logger().info(f" expected tag x: {x}")
@@ -521,6 +527,7 @@ class PandaControl(Node):
                     self.get_logger().info(f" expected tag x: {x}")
                     self.get_logger().info(f" expected tag y: {y}")
             await self.plan([[x,y,z_1],[]],execute_now=True,is_cart=True)
+            time.sleep(1)
             pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
             if pose_response.detected == True:
 
@@ -626,6 +633,7 @@ class PandaControl(Node):
                     self.get_logger().info(f" expected tag x: {x}")
                     self.get_logger().info(f" expected tag y: {y}")
             await self.plan([[x,y,z_1],[]],execute_now=True,is_cart=True)
+            time.sleep(1)
             pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
             if pose_response.detected == True:
                 # self.get_tag_pose()
@@ -672,7 +680,7 @@ class PandaControl(Node):
         scan_x, scan_y = request.x,request.y
         await self.plan([[scan_x,scan_y,z_0],[]],execute_now=True,is_cart=True)
         self.get_logger().info(f" FINISHED Moving to target")
-
+        time.sleep(2)
         pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
         if pose_response.detected == True:
             # self.get_tag_pose()
@@ -713,7 +721,8 @@ class PandaControl(Node):
         await self.plan([[head_x,head_y,0.02],[]], execute_now=True,is_cart=True)
         time.sleep(2)
         self.grasp(width=0.04,force=90.0)
-
+        time.sleep(2)
+        await self.plan(self.waypoints.send_home, execute_now=True)
         response.success = True
         response.x = [0.0]
         response.y = [0.0]
@@ -732,9 +741,9 @@ class PandaControl(Node):
         await self.plan([[pos_x,pos_y,0.025],[]], execute_now=True,is_cart=True)
         time.sleep(2)
         self.grasp(width=0.1,force=00.0)
-        response.x = 0.0
-        response.y = 0.0
-        response.theta = 0.0
+        response.x = [0.0]
+        response.y = [0.0]
+        response.theta = [0.0]
         response.success = True
         return response
 
