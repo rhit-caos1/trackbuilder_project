@@ -4,7 +4,7 @@ from rclpy.node import Node
 from rclpy.duration import Duration
 from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
 from std_srvs.srv import SetBool, Empty
-from movebot_interfaces.srv import AddBox, GetPlanRqst, MoveToTrackRqst,GetCirclesRqst,GetPoseRqst, ScanPoints
+from movebot_interfaces.srv import AddBox, GetPlanRqst, MoveToTrackRqst,GetCirclesRqst,GetPoseRqst, ScanPoints, TagPose
 from geometry_msgs.msg import Pose
 from rclpy.action import ActionClient
 from control_msgs.action import GripperCommand
@@ -83,7 +83,7 @@ class PandaControl(Node):
             GetPoseRqst, "get_pose", callback_group=self.cbgroup
         )
 
-        self.get_tag_client = self.create_client(ScanPoints,"tag_detect",callback_group=self.cbgroup)
+        self.get_tag_client = self.create_client(TagPose,"tag_detect",callback_group=self.cbgroup)
 
 
         # self.execute_final_path_client = self.create_service(
@@ -146,7 +146,7 @@ class PandaControl(Node):
         )
 
         self.drop_track_sevice = self.create_service(
-            ScanPoints, "drop_service", self.drop_track_srv
+            ScanPoints, "place_service", self.drop_track_srv
         )
 
         self.home_sevice = self.create_service(
@@ -474,6 +474,10 @@ class PandaControl(Node):
 
         # init response state
         response.success = False
+        
+        x_list = []
+        y_list = []
+        az_list = []
 
         for i in range(circle_num):
             centered = False
@@ -481,11 +485,12 @@ class PandaControl(Node):
             x_pix = float(circles_response.x[i])
             y_pix = float(circles_response.y[i])
             x = center_x+float(circles_response.x[i])*correction_num*1.5
-            y = center_y+float(circles_response.y[i])*correction_num*1.5
+            y = center_y+float(circles_response.y[i])*correction_num*1.5-0.05
             self.get_logger().info(f" expected tag x pix: {x_pix}")
             self.get_logger().info(f" expected tag y pix: {y_pix}")
             self.get_logger().info(f" expected tag x: {x}")
             self.get_logger().info(f" expected tag y: {y}")
+
             while not centered:
                 time.sleep(2)
                 # move to next point
@@ -520,14 +525,14 @@ class PandaControl(Node):
             if pose_response.detected == True:
 
                 # self.get_tag_pose()
-                tag_request = ScanPoints.Request()
-                tag_request.x = 0.0
-                tag_request.y = 0.0
-                tag_request.theta = 0.0
-                tag_response = await self.get_tag_client.call_async(tag_request)
+                # tag_request = TagPose.Request()
+                # tag_request.x = 0.0
+                # tag_request.y = 0.0
+                # tag_request.theta = 0.0
+                tag_response = await self.get_tag_client.call_async(TagPose.Request())
                 self.get_logger().info(f"{tag_response.success}")
                 while not tag_response.success:
-                    tag_response = await self.get_tag_client.call_async(tag_request)
+                    tag_response = await self.get_tag_client.call_async(TagPose.Request())
                     time.sleep(1)
                     self.get_logger().info(f" loop ")
 
@@ -540,9 +545,14 @@ class PandaControl(Node):
                 self.get_logger().info(f" tag detected! y = {self.tag_y}")
                 self.get_logger().info(f" tag detected! az = {self.tag_az}")
                 response.success = True
-                response.x = self.tag_x
-                response.y = self.tag_y
-                response.theta = self.tag_az
+                x_list.append(self.tag_x)
+                y_list.append(self.tag_y)
+                az_list.append(self.tag_az)
+
+
+        response.x = x_list
+        response.y = y_list
+        response.theta = az_list
 
         return response
     
@@ -619,14 +629,14 @@ class PandaControl(Node):
             pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
             if pose_response.detected == True:
                 # self.get_tag_pose()
-                tag_request = ScanPoints.Request()
-                tag_request.x = 0.0
-                tag_request.y = 0.0
-                tag_request.theta = 0.0
-                tag_response = await self.get_tag_client.call_async(tag_request)
+                # tag_request = TagPose.Request()
+                # tag_request.x = 0.0
+                # tag_request.y = 0.0
+                # tag_request.theta = 0.0
+                tag_response = await self.get_tag_client.call_async(TagPose.Request())
                 self.get_logger().info(f"{tag_response.success}")
                 while not tag_response.success:
-                    tag_response = await self.get_tag_client.call_async(tag_request)
+                    tag_response = await self.get_tag_client.call_async(TagPose.Request())
                     time.sleep(1)
                     self.get_logger().info(f" loop ")
 
@@ -666,14 +676,14 @@ class PandaControl(Node):
         pose_response = await self.get_pose_client.call_async(GetPoseRqst.Request())
         if pose_response.detected == True:
             # self.get_tag_pose()
-            tag_request = ScanPoints.Request()
-            tag_request.x = 0.0
-            tag_request.y = 0.0
-            tag_request.theta = 0.0
-            tag_response = await self.get_tag_client.call_async(tag_request)
+            # tag_request = TagPose.Request()
+            # tag_request.x = 0.0
+            # tag_request.y = 0.0
+            # tag_request.theta = 0.0
+            tag_response = await self.get_tag_client.call_async(TagPose.Request())
             self.get_logger().info(f"{tag_response.success}")
             while not tag_response.success:
-                tag_response = await self.get_tag_client.call_async(tag_request)
+                tag_response = await self.get_tag_client.call_async(TagPose.Request())
                 time.sleep(1)
                 self.get_logger().info(f" loop ")
             # self.get_tag_pose()

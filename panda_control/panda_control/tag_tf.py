@@ -3,7 +3,7 @@ import math
 from rclpy.node import Node
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from movebot_interfaces.srv import ScanPoints
+from movebot_interfaces.srv import ScanPoints, TagPose
 
 def euler_from_quaternion(x, y, z, w):
     """
@@ -35,7 +35,7 @@ class TagTF(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.tag_detect_srv = self.create_service(ScanPoints, "tag_detect", self.tag_detect_srv)
+        self.tag_detect_srv = self.create_service(TagPose, "tag_detect", self.tag_detect_srv)
 
         self.timer= self.create_timer(2, self.timer_callback)
         self.tag_x = 0

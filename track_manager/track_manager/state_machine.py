@@ -29,8 +29,8 @@ class StateMachine(Node):
 
         ########PARAMETERS########
         self.scan_region = [[0.35, 0.11, False], [0.35, -0.11, False]] # define the scan region
-        self.tolerance = 0.2 # define the tolerance for the scan region, the unit is in m
-        self.printer_scan_location = [0.0,0.0]
+        self.tolerance = 0.03 # define the tolerance for the scan region, the unit is in m
+        self.printer_scan_location = [0.3,0.4]
         ##########################
 
         # initialize the machine
@@ -175,7 +175,7 @@ class StateMachine(Node):
 
             # block it so that it never actually enters the next state
             self.get_logger().info("about to enter track state")
-            # self.state = State.TRACK
+            self.state = State.GRASP
             self.initial_scan = False
             return 
         
@@ -190,7 +190,9 @@ class StateMachine(Node):
             x = self.future.x
             y = self.future.y
             theta = self.future.theta
-            
+            self.get_logger().info("received x:" + str(x))
+            self.get_logger().info("received y:" + str(y))
+
             exist = False
             # TO DO: do a LMSR to update the points 
             for i in range(0, len(self.tag_location)):
@@ -322,7 +324,7 @@ class StateMachine(Node):
                                    [np.sin(self.end_left[2]), np.cos(self.end_left[2]), self.end_left[1]],
                                    [0.0, 0.0, 1.0]])
         
-        place_point = np.array([0.5, 0.0, 1.0])
+        place_point = np.array([0.0, 0.0, 1.0])
         place_point_transformed = np.matmul(transformation, place_point)
         self.get_logger().info("place point transformed: " + str(place_point_transformed))
         
@@ -334,14 +336,14 @@ class StateMachine(Node):
 
         if self.future.success:
             self.get_logger().info("Place service success")
-            tag_location = np.array([0.5, -0.5, 1.0])
+            tag_location = np.array([-0.06, -0.03, 1.0])
             tag_location_predicted = np.matmul(transformation, tag_location)
             self.scan_region.append([tag_location_predicted[0], tag_location_predicted[1], False])
             self.state = State.SCAN
     
     ########Helper Functions########
     def global_start(self, tag_location):
-        start_tag = [-0.5, 0.5, 1.0]
+        start_tag = [0.03, 0.06, 1.0]
         matrix_transformation_global2tag = np.array([[np.cos(tag_location[2]), -np.sin(tag_location[2]), tag_location[0]],
                                                      [np.sin(tag_location[2]), np.cos(tag_location[2]), tag_location[1]],
                                                      [0.0, 0.0, 1.0]]) 

@@ -41,7 +41,7 @@ class Camera(Node):
 
         # define subscriber
         self.image_sub = self.create_subscription(
-            Image, "camera/color/image_raw", self.get_image_callback, 10
+            Image, "camera/color/image_raw", self.get_image_callback, 1
         )
         self.info_camera = self.create_subscription(   
             CameraInfo, "camera/color/camera_info", self.get_info_callback, 10
@@ -245,7 +245,6 @@ class Camera(Node):
                 
                     if len(circles_sum) == 4:
                         #self.get_logger().info(str(len(circles_sum[0])))
-                        # still need to implement a way to check if the circles are in the correct radius
                         points_2D = np.array([(circles_sum[3][0], circles_sum[3][1]),
                                             (circles_sum[2][0], circles_sum[2][1]),
                                                 (circles_sum[1][0], circles_sum[1][1]),
@@ -254,6 +253,14 @@ class Camera(Node):
                                             (1.0, 0.0, 0.0),
                                             (-0.8, -1.2, 0.0),
                                             (-0.8, 1.2, 0.0)])
+                        # points_2D = np.array([(circles_sum[2][0], circles_sum[2][1]),(circles_sum[3][0], circles_sum[3][1]),
+                                            
+                        #                         (circles_sum[1][0], circles_sum[1][1]),
+                        #                     (circles_sum[0][0], circles_sum[0][1])], dtype="double")
+                        # points_3D = np.array([(1.0, 0.0, 0.0),(0.0, 0.0, 0.0),
+                    
+                        #                     (-0.8, -1.2, 0.0),
+                        #                     (-0.8, 1.2, 0.0)])
                         success,rvec,tvec = cv2.solvePnP(points_3D, points_2D, self.camera_matrix, self.distortion_coefficients)
                         pose_avg.append([rvec, tvec])
                     else:

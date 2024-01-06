@@ -35,7 +35,7 @@ class Track(Node):
         self.get_logger().info(f"Start_ang: {first_point_angle} ")
         self.get_logger().info(f"End_pos: {second_point_pos} ")
         self.get_logger().info(f"End_ans: {second_point_angle} ")
-        status, filenames,num = gen_train_tracks(first_point_pos, first_point_angle, second_point_pos, second_point_angle, to_stl = True)
+        status, filenames,num,last_two_points = gen_train_tracks(first_point_pos, first_point_angle, second_point_pos, second_point_angle, to_stl = True)
         # status, filenames = self.generate_scad(track_points)
         self.get_logger().info(f"File: {filenames} ")
         if status:
@@ -63,6 +63,19 @@ class Track(Node):
                  "--process=src/cli/kiri-fdm-process-cr30.json"],
                  cwd="/home/scg1224/Belt_printer/grid-apps", capture_output=True, text=True)
             self.get_logger().info(f"Finished running ")
+
+            lx1 = last_two_points[0][0]
+            ly1 = last_two_points[0][1]
+            lx2 = last_two_points[1][0]
+            ly2 = last_two_points[1][1]
+
+            dx = lx2 - lx1
+            dy = ly2 - ly1
+            
+            # Calculate the angle in radians
+            angle_rad = np.arctan2(dy, dx)
+            response.track_end = [lx2,ly2,angle_rad]
+
             if result.returncode == 0:
                 print("Command executed successfully")
                 print("Output:", result.stdout)

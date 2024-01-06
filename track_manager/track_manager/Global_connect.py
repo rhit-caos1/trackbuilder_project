@@ -100,8 +100,12 @@ def gen_train_curves(start_points,start_deg,end_points,end_deg,control_lenght=30
 
 
 def gen_one_path(start_x, start_y, start_deg, end_x, end_y, end_deg, control_length):
-    angle_radians1 = np.radians(start_deg)
-    angle_radians2 = np.radians(end_deg)
+    # DEG
+    # angle_radians1 = np.radians(start_deg)
+    # angle_radians2 = np.radians(end_deg)
+    # RAD
+    angle_radians1 = start_deg
+    angle_radians2 = end_deg
 
     min_dis = np.sqrt((start_x - end_x)**2+(start_y - end_y)**2)
     if control_length>min_dis:
@@ -147,15 +151,20 @@ def track_to_scad(curves, split_lenght, cross_shape,base_filename = 'part_arc',t
 # this function connected to the tag generator and track generator which will generate the track with id
 
 def gen_train_tracks(starts,start_degs,ends,end_degs,draw_lines=False,base_filename = 'part',to_stl = False):
-    status, curves = gen_train_curves(starts,start_degs,ends,end_degs,draw_lines=draw_lines,min_rad=100)
+    status, curves = gen_train_curves(starts*1000,start_degs,ends*1000,end_degs,draw_lines=draw_lines,min_rad=100)
     if status == False:
         print("error, unable to gen")
-        return False,[],0
+        return False,[],0,[[0,0],[1,1]]
     else:
+        curve = [curves[0]]
+        # print(curve)
+        last_two_points = np.array(curve[0])[-2:]/1000
+
+
         trackshape = [[0,0],[20,0],[20,10],[17,10],[17,7],[10,7],[10,10],[0,10],[-10,10],[-10,7],[-17,7],[-17,10],[-20,10],[-20,0]]
 
-        filenames = track_to_scad(curves,200,trackshape,to_stl=to_stl)
-        return True, filenames,len(curves)
+        filenames = track_to_scad(curve,200,trackshape,to_stl=to_stl)
+        return True, filenames,len(curves),last_two_points
 
 # if __name__ == "__main__":
 #     starts = np.array([[187.5,-17.5]])

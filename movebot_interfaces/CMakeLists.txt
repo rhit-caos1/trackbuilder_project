@@ -23,6 +23,7 @@ rosidl_generate_interfaces(
   "srv/GetCirclesRqst.srv"
   "srv/TrackPoints.srv"
   "srv/PrintFile.srv"
+  "srv/TagPose.srv"
   "srv/ScanPoints.srv"
   "srv/PrinterStatus.srv"
   "msg/SimpleCartPath.msg"

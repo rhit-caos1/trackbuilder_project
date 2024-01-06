@@ -3,7 +3,7 @@ from ament_index_python.packages import get_package_share_path
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 from launch.actions import IncludeLaunchDescription,DeclareLaunchArgument
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import PathJoinSubstitution,LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.conditions import LaunchConfigurationEquals
@@ -22,12 +22,21 @@ def generate_launch_description():
     ros2 launch moveBot botchocolate.launch.py real:=false
 
     '''
+    panda_control_path = get_package_share_path('panda_control')
+    default_rviz_config_path = panda_control_path / 'urdf.rviz'
     
     real = DeclareLaunchArgument(
         "real",
         default_value="true",
         description="Choose whether to use the real robot"
     )
+
+    rviz_arg = DeclareLaunchArgument(
+        name='rvizconfig',
+        default_value=str(default_rviz_config_path),
+        description='Absolute path to rviz config file'
+    )
+
 
 
     # launches the simple_move launchfile
@@ -74,7 +83,9 @@ def generate_launch_description():
             "franka_moveit_config",
             "rviz.launch.py",
             "robot_ip:=panda0.robot",
+            # "-d", LaunchConfiguration('rvizconfig')
         ],
+        # arguments=['-d', LaunchConfiguration('rvizconfig')],
         condition = LaunchConfigurationEquals("real","true")
 
     )
@@ -138,6 +149,8 @@ def generate_launch_description():
 
     ld = LaunchDescription([
         realsense_node,
+        rviz_arg,
+        real,
         dwtag_node,
         simple_move,
         # vision,
