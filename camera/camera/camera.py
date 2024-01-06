@@ -41,7 +41,7 @@ class Camera(Node):
 
         # define subscriber
         self.image_sub = self.create_subscription(
-            Image, "camera/color/image_raw", self.get_image_callback, 1
+            Image, "camera/color/image_raw", self.get_image_callback, 0
         )
         self.info_camera = self.create_subscription(   
             CameraInfo, "camera/color/camera_info", self.get_info_callback, 10
@@ -158,9 +158,6 @@ class Camera(Node):
             # move everything to the left
             self.image_list = self.image_list[1:]
 
-
-       
-
     def get_circle(self, image):
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         self.center = (image.shape[0]//2, image.shape[1]//2)
@@ -199,6 +196,9 @@ class Camera(Node):
         elif self.fine_positioning:
 
             pose_avg = []
+            self.image_list = []
+            while len(self.image_list) < 10:
+                self.get_logger().info("Waiting for the image list to be filled")            
             # for loop for the queue
             for i in range(len(self.image_list)):
                 # get the image from the queue
