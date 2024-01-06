@@ -103,7 +103,6 @@ class Camera(Node):
         return response
     
     def pose_callback(self, request, response):
-        self.image_list = []  
         self.fine_positioning = True
         self.coarse_positioning = False
         self.t = None
@@ -155,7 +154,7 @@ class Camera(Node):
         
         # keep the image list capped at 10
         self.image_list.append(self.image)
-        if len(self.image_list) > 10:
+        if len(self.image_list) > 5:
             # move everything to the left
             self.image_list = self.image_list[1:]
 
