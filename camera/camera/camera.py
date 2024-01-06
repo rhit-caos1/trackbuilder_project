@@ -153,7 +153,7 @@ class Camera(Node):
         
         # keep the image list capped at 5
         self.image_list.append(self.image)
-        if len(self.image_list) > 5:
+        if len(self.image_list) > 10:
             # move everything to the left
             self.image_list = []
             self.image_list = self.image_list[1:]
@@ -266,6 +266,7 @@ class Camera(Node):
                         #                     (-0.8, -1.2, 0.0),
                         #                     (-0.8, 1.2, 0.0)])
                         success,rvec,tvec = cv2.solvePnP(points_3D, points_2D, self.camera_matrix, self.distortion_coefficients)
+                        
                         pose_avg.append([rvec, tvec])
                     else:
                         self.get_logger().info("Not enough circles detected")
@@ -273,10 +274,16 @@ class Camera(Node):
                     
                 else:
                     self.get_logger().info("No tag detected")
-            print(pose_avg)
-            # calculate the average of the rvec and tvec
-            rvec = np.mean(np.array(pose_avg)[:, 0], axis=0)
-            tvec = np.mean(np.array(pose_avg)[:, 1], axis=0)
+
+            # if only one element in the list, then just use that
+            if len(pose_avg) == 1:
+                rvec = pose_avg[0][0]
+                tvec = pose_avg[0][1]
+                self.get_logger().info("Only one element in the list")  
+            else:
+                rvec = np.mean(np.array(pose_avg)[:, 0], axis=0)
+                tvec = np.mean(np.array(pose_avg)[:, 1], axis=0)
+                self.get_logger().info("More than one element in the list")
             image = cv2.drawFrameAxes(image, self.camera_matrix, self.distortion_coefficients, rvec, tvec, 2.5)
 
             self.get_logger().info("Pose estimation successful")
