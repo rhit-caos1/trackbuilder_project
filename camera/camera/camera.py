@@ -276,14 +276,15 @@ class Camera(Node):
                     self.get_logger().info("No tag detected")
 
             # if only one element in the list, then just use that
-            if len(pose_avg) == 1:
-                rvec = pose_avg[0][0]
-                tvec = pose_avg[0][1]
-                self.get_logger().info("Only one element in the list")  
-            else:
-                rvec = np.mean(np.array(pose_avg)[:, 0], axis=0)
-                tvec = np.mean(np.array(pose_avg)[:, 1], axis=0)
-                self.get_logger().info("More than one element in the list")
+            # if len(pose_avg) == 1:
+            #     rvec = pose_avg[0][0]
+            #     tvec = pose_avg[0][1]
+            #     self.get_logger().info("Only one element in the list")  
+            # else:
+            #     # find the average of the rvec and tvec
+            #     rvec = np.mean(pose_avg, axis=0)[0]
+            #     tvec = np.mean(pose_avg, axis=0)[1]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+            #     self.get_logger().info("More than one element in the list")
             image = cv2.drawFrameAxes(image, self.camera_matrix, self.distortion_coefficients, rvec, tvec, 2.5)
 
             self.get_logger().info("Pose estimation successful")
