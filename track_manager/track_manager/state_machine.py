@@ -187,61 +187,64 @@ class StateMachine(Node):
             self.future = await self.scan_service.call_async(rqst)
             # save this response to a file
             
-            x = self.future.x
-            y = self.future.y
-            theta = self.future.theta
-            self.get_logger().info("received x:" + str(x))
-            self.get_logger().info("received y:" + str(y))
+            for i in range(0, len(self.future.x)):
+                x = self.future.x[i]
+                y = self.future.y[i]
+                theta = self.future.theta[i]
+                self.get_logger().info("received x:" + str(x))
+                self.get_logger().info("received y:" + str(y))
 
-            exist = False
-            # TO DO: do a LMSR to update the points 
-            for i in range(0, len(self.tag_location)):
-                if abs(self.tag_location[i][0] - x) < self.tolerance and abs(self.tag_location[i][1] - y) < self.tolerance:
-                    # this means that it is the same point but it has moved
-                    self.tag_location[i][0] = x
-                    self.tag_location[i][1] = y
-                    self.tag_location[i][2] = theta
-                    exist = True
-                    break
+                exist = False
+                # TO DO: do a LMSR to update the points 
+                for i in range(0, len(self.tag_location)):
+                    if abs(self.tag_location[i][0] - x) < self.tolerance and abs(self.tag_location[i][1] - y) < self.tolerance:
+                        # this means that it is the same point but it has moved
+                        self.tag_location[i][0] = x
+                        self.tag_location[i][1] = y
+                        self.tag_location[i][2] = theta
+                        exist = True
+                        break
 
-            # update the files 
-            if not exist and self.initial_scan == False:
-                tag_pose = [x, y, theta]
-                self.tag_location.insert(self.left_pointer,tag_pose)
-                self.track_end.insert(self.left_pointer,self.track_end_generated_last)
+                # update the files 
+                if not exist and self.initial_scan == False:
+                    tag_pose = [x, y, theta]
+                    self.tag_location.insert(self.left_pointer,tag_pose)
+                    self.track_end.insert(self.left_pointer,self.track_end_generated_last)
 
-                 # write the points to the file
-                with open(self.track_manager_dir + self.points, "w") as f:
-                    f.seek(0)
-                    f.truncate()
-                    for pose in self.tag_location:
-                        f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
+                    # write the points to the file
+                    with open(self.track_manager_dir + self.points, "w") as f:
+                        f.seek(0)
+                        f.truncate()
+                        for pose in self.tag_location:
+                            f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
 
-                # also change the track end
-                with open(self.track_manager_dir + self.track_end_file, "w") as f:
-                    f.seek(0)
-                    f.truncate()
-                    for track in self.track_end:
-                        f.write(str(track[0]) + " " + str(track[1]) + " " + str(track[2]) + "\n")
-            
-            elif not exist and self.initial_scan == True:
-                tag_pose = [x, y, theta]
-                self.tag_location.append(tag_pose)
+                    # also change the track end
+                    with open(self.track_manager_dir + self.track_end_file, "w") as f:
+                        f.seek(0)
+                        f.truncate()
+                        for track in self.track_end:
+                            f.write(str(track[0]) + " " + str(track[1]) + " " + str(track[2]) + "\n")
                 
-                # write the points to the file
-                with open(self.track_manager_dir + self.points, "w") as f:
-                    for pose in self.tag_location:
-                        f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
-            
-            elif exist:
-                with open(self.track_manager_dir + self.points, "w") as f:
-                    f.seek(0)
-                    f.truncate()
-                    for pose in self.tag_location:
-                        f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
+                elif not exist and self.initial_scan == True:
+                    tag_pose = [x, y, theta]
+                    self.tag_location.append(tag_pose)
+                    
+                    # write the points to the file
+                    with open(self.track_manager_dir + self.points, "w") as f:
+                        for pose in self.tag_location:
+                            f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
+                
+                # replace this point if it already exists
+                elif exist:
+                    with open(self.track_manager_dir + self.points, "w") as f:
+                        f.seek(0)
+                        f.truncate()
+                        for pose in self.tag_location:
+                            f.write(str(pose[0]) + " " + str(pose[1]) + " " + str(pose[2]) + "\n")
 
-            else:
-                self.get_logger().info("Point already exists")
+                else:
+                    self.get_logger().info("Point already exists")
+
             if self.future.success:
                 self.get_logger().info("Scan service success")
             else:
