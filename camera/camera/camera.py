@@ -192,6 +192,12 @@ class Camera(Node):
                         self.get_logger().info("x: " + str(x) + " y: " + str(y))
 
                     n += 1
+                
+                # rearrange the large circle list so that the circles are arranged in a clockwise manner
+                # sort it by x coordinate ascending order
+                self.large_circle_list = sorted(self.large_circle_list, key=lambda x: x[0])
+
+                ####TODO: need to find the center of all the points and sort in a clockwise fashion
  
         elif self.fine_positioning:
 
