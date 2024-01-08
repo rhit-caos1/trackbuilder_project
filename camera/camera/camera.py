@@ -263,8 +263,8 @@ class Camera(Node):
                         self.get_logger().info("No tag detected")
 
                 # find the average of the rvec and tvec
-                rvec = np.mean(pose_avg, axis=0)[0]
-                tvec = np.mean(pose_avg, axis=0)[1] 
+                # rvec = np.mean(pose_avg, axis=0)[0]
+                # tvec = np.mean(pose_avg, axis=0)[1] 
                 self.get_logger().info("size of the pose_avg: " + str(len(pose_avg)))
                 self.get_logger().info("size of image buffer: " + str(len(self.image_list)))
                 image = cv2.drawFrameAxes(image, self.camera_matrix, self.distortion_coefficients, rvec, tvec, 2.5)
